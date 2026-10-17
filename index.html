@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>El Sazón de Helem C.A. - Sistema de Gestión</title>
+
+  <!-- FontAwesome Iconos -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <!-- Librería SheetJS para Excel -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Estilos Personalizados -->
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div id="loginView" class="login-container">
+    <div class="login-card">
+      <div class="logo-box">
+        <svg class="logo-svg" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="46" fill="#D4AF37" stroke="#8B1E3F" stroke-width="3"/>
+          <circle cx="50" cy="50" r="40" fill="#FFFDD0" />
+          <path d="M 35 45 Q 50 30 65 45 L 60 55 L 40 55 Z" fill="#8B1E3F"/>
+          <text x="50" y="72" text-anchor="middle" fill="#8B1E3F" font-weight="bold" font-size="12">Sazón de Helem</text>
+        </svg>
+      </div>
+      <h2>El Sazón de Helem C.A.</h2>
+      <p class="subtitle">RIF: J-508474309</p>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label><i class="fas fa-user"></i> Usuario</label>
+          <input type="text" id="usernameInput" placeholder="cocina o supervisor" required />
+        </div>
+        <div class="form-group">
+          <label><i class="fas fa-lock"></i> Contraseña</label>
+          <input type="password" id="passwordInput" placeholder="••••••••" required />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Ingresar al Sistema</button>
+      </form>
+
+      <div class="demo-credentials">
+        <p><strong>Cuentas de Prueba:</strong></p>
+        <ul>
+          <li><strong>Jefa de Cocina:</strong> cocina / 1234</li>
+          <li><strong>Supervisor:</strong> supervisor / 1234</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL PRINCIPAL -->
+  <div id="appView" class="app-container hidden">
+    <!-- NAVBAR -->
+    <header class="navbar">
+      <div class="navbar-brand">
+        <div class="logo-small">
+          <svg viewBox="0 0 100 100" width="35" height="35">
+            <circle cx="50" cy="50" r="46" fill="#D4AF37"/>
+            <circle cx="50" cy="50" r="40" fill="#FFFDD0"/>
+            <text x="50" y="60" text-anchor="middle" fill="#8B1E3F" font-weight="bold" font-size="30">H</text>
+          </svg>
+        </div>
+        <div>
+          <h1>El Sazón de Helem C.A.</h1>
+          <small>RIF: J-508474309</small>
+        </div>
+      </div>
+      <div class="navbar-user">
+        <span id="userBadge" class="badge"></span>
+        <button id="logoutBtn" class="btn btn-secondary btn-sm"><i class="fas fa-sign-out-alt"></i> Salir</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <nav class="menu">
+          <!-- Menú Jefa de Cocina -->
+          <div id="menuCocina" class="menu-group hidden">
+            <p class="menu-label">Panel de Cocina</p>
+            <button class="nav-btn active" data-target="secComidas"><i class="fas fa-utensils"></i> Carga Diario Comidas</button>
+            <button class="nav-btn" data-target="secInsumosCocina"><i class="fas fa-boxes"></i> Consumo de Insumos</button>
+            <button class="nav-btn" data-target="secDiarioCocina"><i class="fas fa-journal-whills"></i> Diario y Gastos del Día</button>
+            <button class="nav-btn" data-target="secNominaCocina"><i class="fas fa-calendar-check"></i> Asistencia Diaria</button>
+          </div>
+
+          <!-- Menú Supervisor -->
+          <div id="menuSupervisor" class="menu-group hidden">
+            <p class="menu-label">Panel de Supervisión</p>
+            <button class="nav-btn active" data-target="secDashboardSup"><i class="fas fa-chart-line"></i> Resumen General</button>
+            <button class="nav-btn" data-target="secClientesSup"><i class="fas fa-building"></i> Gestión de Clientes</button>
+            <button class="nav-btn" data-target="secInventarioSup"><i class="fas fa-warehouse"></i> Inventario & Excel</button>
+            <button class="nav-btn" data-target="secPreciosPlatos"><i class="fas fa-tags"></i> Precios y Tipos Platos</button>
+            <button class="nav-btn" data-target="secReportesCocina"><i class="fas fa-receipt"></i> Cobros & Gastos Cocina</button>
+            <button class="nav-btn" data-target="secNominaSup"><i class="fas fa-money-bill-wave"></i> Nómina y Pago Móvil</button>
+          </div>
+        </nav>
+      </aside>
+
+      <!-- CONTENIDO PRINCIPAL -->
+      <main class="main-content">
+
+        <!-- ================= MÓDULOS COCINA ================= -->
+        <section id="secComidas" class="content-section">
+          <h2><i class="fas fa-utensils"></i> Carga Diaria de Comidas Servidas</h2>
+          <div class="card-grid">
+            <div class="card">
+              <h3>Registrar Menú Servido</h3>
+              <form id="formPlatoDia">
+                <div class="form-group">
+                  <label>Tipo / Categoría de Plato</label>
+                  <select id="selectTipoPlato" required></select>
+                </div>
+                <div class="form-group">
+                  <label>Descripción del Plato</label>
+                  <input type="text" id="nombrePlato" placeholder="Ej: Pure de Papas con Pollo Al Horno" required />
+                </div>
+                <div class="form-group">
+                  <label>Cliente Autorizado</label>
+                  <select id="selectClientePlatoCocina" required>
+                    <option value="">Cargando clientes...</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Cantidad Servida (Raciones)</label>
+                  <input type="number" id="cantServida" min="1" required />
+                </div>
+                <div class="form-group">
+                  <label>Foto del Plato Elaborado</label>
+                  <input type="file" id="fotoPlato" accept="image/*" />
+                </div>
+                <div id="previewFoto" class="image-preview hidden"></div>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar Registro</button>
+              </form>
+            </div>
+
+            <div class="card">
+              <h3>Comidas Registradas Hoy</h3>
+              <div class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Foto</th>
+                      <th>Tipo</th>
+                      <th>Cliente</th>
+                      <th>Cant.</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tablaPlatosHoy"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="secInsumosCocina" class="content-section hidden">
+          <h2><i class="fas fa-boxes"></i> Consumo de Insumos Diarios</h2>
+          <div class="card">
+            <form id="formGastoInsumo" class="grid-form">
+              <div class="form-group">
+                <label>Rubro (Categoría Fija)</label>
+                <select id="selectRubroInsumo" required></select>
+              </div>
+              <div class="form-group">
+                <label>Producto a Descontar</label>
+                <select id="selectProductoInsumo" required></select>
+              </div>
+              <div class="form-group">
+                <label>Cantidad Gastada Hoy</label>
+                <input type="number" id="cantGastoInsumo" step="0.1" min="0.1" placeholder="Ej: 5.0" required />
+              </div>
+              <div class="form-group align-end">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-minus-circle"></i> Registrar Gasto</button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section id="secDiarioCocina" class="content-section hidden">
+          <h2><i class="fas fa-journal-whills"></i> Diario de lo Cocinado y Gastos de Insumos</h2>
+          <div class="card">
+            <div class="form-group inline-group" style="max-width: 350px;">
+              <label>Fecha de Consulta:</label>
+              <input type="date" id="filtroFechaDiario" />
+            </div>
+          </div>
+
+          <div class="card-grid">
+            <div class="card">
+              <h3><i class="fas fa-utensils"></i> Platos Elaborados en la Fecha</h3>
+              <div id="diarioPlatosContainer"></div>
+            </div>
+            <div class="card">
+              <h3><i class="fas fa-shopping-basket"></i> Relación de Insumos Consumidos</h3>
+              <div class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Insumo / Producto</th>
+                      <th>Rubro</th>
+                      <th>Cantidad Gastada</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tablaDiarioInsumos"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="secNominaCocina" class="content-section hidden">
+          <h2><i class="fas fa-calendar-check"></i> Control Diario de Asistencia</h2>
+          <div class="card">
+            <div class="form-group" style="max-width: 250px;">
+              <label>Fecha de Trabajo</label>
+              <input type="date" id="fechaAsistenciaCocina" />
+            </div>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Cédula</th>
+                    <th>Nombre</th>
+                    <th>Cargo</th>
+                    <th>Estatus</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaNominaCocina"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= MÓDULOS SUPERVISOR ================= -->
+        <section id="secDashboardSup" class="content-section hidden">
+          <h2><i class="fas fa-chart-line"></i> Resumen General de Operación</h2>
+          
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="icon"><i class="fas fa-utensils"></i></div>
+              <div class="info">
+                <span class="title">Platos Servidos Hoy</span>
+                <span class="value" id="statComidasHoy">0</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="icon"><i class="fas fa-dollar-sign"></i></div>
+              <div class="info">
+                <span class="title">Facturación Sin IVA (USD)</span>
+                <span class="value" id="statVentasHoy">$0.00</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ALERTAS DEBAJO -->
+          <div id="alertasCenterBox" class="center-alerts-panel"></div>
+        </section>
+
+        <section id="secClientesSup" class="content-section hidden">
+          <h2><i class="fas fa-building"></i> Gestión de Clientes Autorizados</h2>
+          <div class="card-grid">
+            <div class="card">
+              <h3>Registrar Nuevo Cliente</h3>
+              <form id="formNuevoCliente">
+                <div class="form-group">
+                  <label>Nombre / Razón Social del Cliente</label>
+                  <input type="text" id="nombreClienteInput" placeholder="Ej: Corporación Alpha, Banco Central" required />
+                </div>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Guardar Cliente</button>
+              </form>
+            </div>
+            <div class="card">
+              <h3>Clientes Registrados</h3>
+              <div class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Nombre del Cliente</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tablaClientesSup"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- INVENTARIO CON RUBRO FIJO Y SUBDIVISIÓN DE PRODUCTOS GUARDADOS -->
+        <section id="secInventarioSup" class="content-section hidden">
+          <h2><i class="fas fa-warehouse"></i> Control de Inventario y Subdivisión de Rubros</h2>
+          
+          <div class="card">
+            <h3><i class="fas fa-file-excel"></i> Carga Masiva mediante Excel</h3>
+            <div class="excel-actions">
+              <button id="btnDescargarModelo" class="btn btn-secondary"><i class="fas fa-download"></i> Descargar Plantilla Excel</button>
+              <div class="file-upload-box">
+                <label for="inputExcelInventario" class="btn btn-primary"><i class="fas fa-upload"></i> Subir Excel Actualizado</label>
+                <input type="file" id="inputExcelInventario" accept=".xlsx, .xls" class="hidden" />
+              </div>
+            </div>
+          </div>
+
+          <div class="card-grid">
+            <!-- Formulario de Insumo con Productos Dinámicos en Rubro Fijo -->
+            <div class="card">
+              <h3>Cargar / Registrar Producto en Rubro</h3>
+              <form id="formNuevoInsumoInv">
+                <div class="form-group">
+                  <label>1. Seleccionar Rubro (Fijo / No Modificable)</label>
+                  <select id="regRubroInsumo" required></select>
+                </div>
+                <div class="form-group">
+                  <label>2. Seleccionar Producto Guardado de este Rubro</label>
+                  <select id="regSelectProductoInsumo"></select>
+                </div>
+                <div class="form-group">
+                  <label>O Escribir Producto Nuevo para este Rubro (Se Guardará)</label>
+                  <input type="text" id="regNuevoProductoManual" placeholder="Ej: Carne de Lagarto, Chuleta Ahumada, Adobo..." />
+                </div>
+                <div class="form-group">
+                  <label>Unidad de Medida</label>
+                  <select id="regUnidadInsumo" required>
+                    <option value="Kg">Kilogramos (Kg)</option>
+                    <option value="Gramos">Gramos (g)</option>
+                    <option value="Lts">Litros (Lts)</option>
+                    <option value="Unid">Unidades (Unid)</option>
+                    <option value="Paquetes">Paquetes</option>
+                    <option value="Latas">Latas</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Cantidad en Stock</label>
+                  <input type="number" step="0.1" id="regStockInsumo" placeholder="Ej: 15.5" required />
+                </div>
+                <div class="form-group">
+                  <label>Stock Mínimo (Alerta)</label>
+                  <input type="number" step="0.1" id="regMinInsumo" placeholder="Ej: 5.0" required />
+                </div>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Guardar Producto</button>
+              </form>
+            </div>
+
+            <!-- Buscador Dinámico -->
+            <div class="card">
+              <h3>Buscador e Inspección de Productos</h3>
+              <div class="form-group">
+                <label><i class="fas fa-search"></i> Buscar por Nombre de Producto o Rubro</label>
+                <input type="text" id="searchInsumoInput" placeholder="Escriba: Bisteck, Papa, Proteínas..." />
+              </div>
+              <div class="form-group">
+                <label>Filtrar por Rubro Fijo</label>
+                <select id="filterRubroInventario">
+                  <option value="">TODOS LOS RUBROS</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Rubro</th>
+                    <th>Producto Subdividido</th>
+                    <th>Stock Actual</th>
+                    <th>Unidad</th>
+                    <th>Stock Mín.</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaInventarioSup"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Precios de Platos -->
+        <section id="secPreciosPlatos" class="content-section hidden">
+          <h2><i class="fas fa-tags"></i> Modificar y Crear Precios por Plato (Sin IVA)</h2>
+          <div class="card-grid">
+            <div class="card">
+              <h3>Añadir Nuevo Tipo de Plato</h3>
+              <form id="formNuevoPlato">
+                <div class="form-group">
+                  <label>Nombre del Plato/Tipo</label>
+                  <input type="text" id="nombreNuevoPlato" required />
+                </div>
+                <div class="form-group">
+                  <label>Precio Neto USD (Sin IVA)</label>
+                  <input type="number" step="0.01" id="precioNuevoPlato" required />
+                </div>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Guardar Plato</button>
+              </form>
+            </div>
+            <div class="card">
+              <h3>Catálogo de Precios</h3>
+              <div class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Categoría</th>
+                      <th>Precio ($)</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tablaPreciosPlatos"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Reporte de Cobros y Gastos de Cocina -->
+        <section id="secReportesCocina" class="content-section hidden">
+          <h2><i class="fas fa-receipt"></i> Reportes de Cocina: Cobros y Gastos Diarios</h2>
+          
+          <div class="card">
+            <div class="card-grid" style="align-items: flex-end;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label>Filtrar Reporte de Comidas por Cliente</label>
+                <select id="filtroClienteCobros">
+                  <option value="">TODOS LOS CLIENTES</option>
+                </select>
+              </div>
+              <div>
+                <button id="btnExportarComidasExcel" class="btn btn-secondary btn-block"><i class="fas fa-file-excel"></i> Exportar Registro a Excel</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Registro de Comidas Servidas</h3>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha/Hora</th>
+                    <th>Foto</th>
+                    <th>Cliente/Empresa</th>
+                    <th>Tipo</th>
+                    <th>Plato</th>
+                    <th>Cant.</th>
+                    <th>P. Unit ($)</th>
+                    <th>Total ($)</th>
+                    <th>Estatus</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaReportesPlatos"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3><i class="fas fa-shopping-basket"></i> Gastos de Insumos Consumidos en Cocina</h3>
+              <div class="form-group inline-group" style="margin:0;">
+                <label>Fecha:</label>
+                <input type="date" id="filtroFechaGastosSup" />
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Rubro</th>
+                    <th>Producto / Insumo</th>
+                    <th>Cantidad Gastada</th>
+                    <th>Unidad</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaGastosInsumosSup"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- NÓMINA CON CONTROL DE ESTADO DE PAGO (PAGADO / PENDIENTE) Y CÁLCULO PRECISO -->
+        <section id="secNominaSup" class="content-section hidden">
+          <h2><i class="fas fa-money-bill-wave"></i> Liquidación de Nómina y Control de Pagos</h2>
+
+          <div class="card rate-card">
+            <div class="form-group inline-group">
+              <label><i class="fas fa-coins"></i> <strong>Tasa de Cambio (Bs / USD):</strong></label>
+              <input type="number" step="0.01" id="tasaCambioInput" value="36.50" style="width: 140px;" />
+              <button id="btnActualizarTasa" class="btn btn-primary btn-sm">Aplicar Tasa</button>
+            </div>
+          </div>
+
+          <div class="card-grid">
+            <div class="card">
+              <h3 id="tituloFormEmpleado">Registrar Empleado y Datos de Pago</h3>
+              <form id="formNuevoEmpleado">
+                <input type="hidden" id="editEmpId" value="" />
+                <div class="form-group">
+                  <label>Cédula de Identidad</label>
+                  <input type="text" id="cedulaEmpleado" placeholder="V-12345678" required />
+                </div>
+                <div class="form-group">
+                  <label>Nombre y Apellido</label>
+                  <input type="text" id="nombreEmpleado" required />
+                </div>
+                <div class="form-group">
+                  <label>Cargo</label>
+                  <input type="text" id="cargoEmpleado" required />
+                </div>
+                <div class="form-group">
+                  <label>Sueldo Base Mensual (USD $)</label>
+                  <input type="number" step="0.01" id="sueldoEmpleado" placeholder="Ej: 30.00" required />
+                </div>
+                <div class="form-group">
+                  <label>Banco (Pago Móvil)</label>
+                  <input type="text" id="bancoEmpleado" placeholder="Ej: Banesco, Venezuela" required />
+                </div>
+                <div class="form-group">
+                  <label>Teléfono (Pago Móvil)</label>
+                  <input type="text" id="telefonoEmpleado" placeholder="Ej: 04141234567" required />
+                </div>
+                <div style="display: flex; gap: 10px;">
+                  <button type="submit" class="btn btn-primary" id="btnSubmitEmpleado"><i class="fas fa-user-plus"></i> Guardar Empleado</button>
+                  <button type="button" class="btn btn-secondary hidden" id="btnCancelEditEmp" onclick="resetFormEmpleado()">Cancelar</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="card">
+              <h3>Filtro de Periodo de Liquidación</h3>
+              <div class="form-group">
+                <label>Mes de Liquidación</label>
+                <input type="month" id="filtroMesNomina" />
+              </div>
+              <div class="form-group">
+                <label>Periodo Quincenal</label>
+                <select id="filtroQuincenaNomina">
+                  <option value="MES">Mes Completo (Días 01 al 30/31)</option>
+                  <option value="Q1">Primera Quincena (Días 01 al 15)</option>
+                  <option value="Q2">Segunda Quincena (Días 16 al 30/31)</option>
+                </select>
+              </div>
+              <button id="btnExportarNominaExcel" class="btn btn-secondary btn-block"><i class="fas fa-file-excel"></i> Descargar Nómina en Excel</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Lista y Edición de Trabajadores</h3>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Cédula</th>
+                    <th>Nombre</th>
+                    <th>Cargo</th>
+                    <th>Pago Móvil (Banco / Tlf)</th>
+                    <th>Sueldo ($)</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaListaTrabajadores"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Resultados con Estatus Pagado/Pendiente -->
+          <div class="card">
+            <h3>Resultados de Liquidación y Registro de Pagos por Trabajador</h3>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Cédula</th>
+                    <th>Empleado</th>
+                    <th>Días Trab.</th>
+                    <th>Monto ($)</th>
+                    <th>Monto (Bs.)</th>
+                    <th>Banco / Teléfono</th>
+                    <th>Estatus Pago</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaCalculoNomina"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Consulta y Marcar Registro de Asistencia Diaria</h3>
+            <div class="form-group inline-group" style="max-width: 300px; margin-bottom: 15px;">
+              <label>Seleccionar Fecha:</label>
+              <input type="date" id="filtroFechaAsistenciaSup" />
+            </div>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Cédula</th>
+                    <th>Empleado</th>
+                    <th>Cargo</th>
+                    <th>Estatus en la Fecha</th>
+                    <th>Acción del Supervisor</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaAsistenciaDiaSup"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- MODAL PARA VER FOTO -->
+  <div id="imageModal" class="modal hidden" onclick="cerrarModalFoto()">
+    <span class="modal-close">&times;</span>
+    <img class="modal-content" id="imgModalFull" />
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
