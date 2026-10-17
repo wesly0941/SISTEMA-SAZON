@@ -1,4 +1,12 @@
-// RUBROS FIJOS (CATEGORÍAS PRINCIPALES NO MODIFICABLES)
+// =========================================================================
+// CONFIGURACIÓN DE SUPABASE (CONECTADO A TU PROYECTO REAL)
+// =========================================================================
+const SUPABASE_URL = 'https://smmmynjbxuasfslgdwtk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtbW15bmpieHVhc2ZzbGdkd3RrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyMDQyMDksImV4cCI6MjEwNzc4MDIwOX0.QtDlgN0BRP-FCZcvjY2ixMXknQJCdq_tnjMZjXktnkA';
+
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// RUBROS FIJOS (CATEGORÍAS PRINCIPALES)
 const RUBROS_FIJOS = [
   "Proteínas",
   "Condimentos y Especias",
@@ -8,65 +16,21 @@ const RUBROS_FIJOS = [
   "Bebidas"
 ];
 
-// CATALOGO DE PRODUCTOS POR RUBRO (SE AUTOGUARDAN LOS NUEVOS)
-const CATALOGO_PRODUCTOS_SUBDIVIDIDOS = {
-  "Proteínas": ["Bisteck", "Carne para Mechar", "Carne para Guisar", "Carne Molida", "Pollo Entero", "Muslos de Pollo", "Pechuga de Pollo", "Chuleta de Cerdo"],
-  "Condimentos y Especias": ["Sal", "Pimienta Negra", "Comino", "Ajo en Polvo", "Orégano", "Color / Onoto", "Cubito", "Salsa de Soya"],
-  "Víveres": ["Arroz", "Harina PAN", "Pasta / Espagueti", "Aceite", "Caraotas Negras", "Lentejas", "Azúcar", "Café"],
-  "Verduras y Vegetales": ["Papa", "Cebolla", "Pimentón", "Tomate", "Zanahoria", "Ajo en Rama", "Cilantro", "Plátano"],
-  "Lácteos": ["Queso Blanco", "Queso Amarillo", "Mantequilla", "Leche", "Crema de Leche"],
-  "Bebidas": ["Jugo Concentrado", "Refresco", "Agua Mineral"]
-};
-
-// ESTADO GLOBAL DE LA APLICACIÓN
+// ESTADO GLOBAL LOCAL (SINCRONIZADO CON SUPABASE)
 const state = {
   currentUser: null,
   tasaCambio: 36.50,
-
-  preciosPlatos: {
-    "Ejecutivo": 3.50,
-    "Especial": 5.00,
-    "Sopa": 2.00,
-    "Postre": 1.50
-  },
-
-  clientes: [
-    { id: 1, nombre: "Servicio Interno / Comedor" },
-    { id: 2, nombre: "Corporación Alpha C.A." },
-    { id: 3, nombre: "Banco Venezolano Crédito" }
-  ],
-
-  // INVENTARIO ACTUAL
-  inventario: [
-    { id: 101, rubro: "Proteínas", producto: "Bisteck", unidad: "Kg", stock: 12.0, stockMin: 5.0 },
-    { id: 102, rubro: "Proteínas", producto: "Carne para Mechar", unidad: "Kg", stock: 8.5, stockMin: 4.0 },
-    { id: 103, rubro: "Proteínas", producto: "Carne para Guisar", unidad: "Kg", stock: 3.0, stockMin: 5.0 },
-    { id: 201, rubro: "Condimentos y Especias", producto: "Sal", unidad: "Kg", stock: 10.0, stockMin: 2.0 },
-    { id: 301, rubro: "Víveres", producto: "Arroz", unidad: "Kg", stock: 40.0, stockMin: 15.0 },
-    { id: 401, rubro: "Verduras y Vegetales", producto: "Papa", unidad: "Kg", stock: 30.0, stockMin: 10.0 }
-  ],
-
+  preciosPlatos: { "Ejecutivo": 3.50, "Especial": 5.00, "Sopa": 2.00, "Postre": 1.50 },
+  clientes: [],
+  inventario: [],
   registroComidas: [],
   consumosDiarios: [],
-
-  nomina: [
-    { id: 1, cedula: "V-15890123", nombre: "Helem Espinoza", cargo: "Jefa de Cocina", sueldoMensual: 150.00, banco: "Banesco", telefono: "04141234567" },
-    { id: 2, cedula: "V-20123456", nombre: "María Delgado", cargo: "Auxiliar de Cocina", sueldoMensual: 90.00, banco: "Venezuela", telefono: "04249876543" },
-    { id: 3, cedula: "V-18456789", nombre: "Carlos Gómez", cargo: "Mantenimiento", sueldoMensual: 30.00, banco: "Mercantil", telefono: "04125554433" }
-  ],
-
-  // ASISTENCIAS INICIALES DE PRUEBA (17/10/2026)
-  asistencias: [
-    { fecha: "2026-10-17", cedula: "V-15890123", presente: true },
-    { fecha: "2026-10-17", cedula: "V-20123456", presente: true },
-    { fecha: "2026-10-17", cedula: "V-18456789", presente: true }
-  ],
-
-  // REGISTRO DE PAGOS DE NÓMINA (PERIODO -> CEDULA -> ESTADO)
-  pagosNomina: {} // Clave: `${mes}_${quincena}_${cedula}` -> { pagado: true/false, fechaPago, montoUSD, montoBS }
+  nomina: [],
+  asistencias: [],
+  pagosNomina: {}
 };
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const hoyStr = new Date().toISOString().split("T")[0];
   
   if (document.getElementById("fechaAsistenciaCocina")) document.getElementById("fechaAsistenciaCocina").value = hoyStr;
@@ -82,11 +46,25 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   setupEvents();
-  renderAll();
+  await cargarTodoDesdeSupabase();
 });
 
+// CARGA INICIAL DE DATOS DESDE SUPABASE
+async function cargarTodoDesdeSupabase() {
+  await Promise.all([
+    cargarClientesBD(),
+    cargarInventarioBD(),
+    cargarEmpleadosBD(),
+    cargarAsistenciasBD(),
+    cargarPagosNominaBD(),
+    cargarComidasBD(),
+    cargarConsumosBD()
+  ]);
+  renderAll();
+}
+
 function setupEvents() {
-  // Login / Logout
+  // Login
   if (document.getElementById("loginForm")) {
     document.getElementById("loginForm").addEventListener("submit", (e) => {
       e.preventDefault();
@@ -98,7 +76,7 @@ function setupEvents() {
       } else if (user === "supervisor" && pass === "1234") {
         login("Supervisor General", "supervisor");
       } else {
-        alert("Credenciales incorrectas. Pruebe cocina/1234 o supervisor/1234");
+        alert("Credenciales incorrectas. Use cocina/1234 o supervisor/1234");
       }
     });
   }
@@ -138,7 +116,7 @@ function setupEvents() {
     });
   }
 
-  // Forms e Inventario
+  // Eventos de Formularios
   if (document.getElementById("regRubroInsumo")) document.getElementById("regRubroInsumo").addEventListener("change", actualizarSubProductosInventario);
   if (document.getElementById("formNuevoInsumoInv")) document.getElementById("formNuevoInsumoInv").addEventListener("submit", cargarInsumoASupervisor);
   
@@ -226,7 +204,23 @@ function renderAll() {
   renderDashboardSup();
 }
 
-// RUBROS FIJOS Y SUBPRODUCTOS DINÁMICOS
+// =========================================================================
+// MÓDULO: INVENTARIO & PRODUCTOS (SUPABASE)
+// =========================================================================
+async function cargarInventarioBD() {
+  const { data, error } = await db.from('productos').select('*');
+  if (!error && data) {
+    state.inventario = data.map(i => ({
+      id: i.id,
+      rubro: i.rubro,
+      producto: i.nombre,
+      unidad: i.unidad,
+      stock: parseFloat(i.stock),
+      stockMin: parseFloat(i.stock_min)
+    }));
+  }
+}
+
 function populateRubrosFijos() {
   const regRubro = document.getElementById("regRubroInsumo");
   const filterRubro = document.getElementById("filterRubroInventario");
@@ -235,27 +229,21 @@ function populateRubrosFijos() {
   if (regRubro) {
     const act = regRubro.value;
     regRubro.innerHTML = "";
-    RUBROS_FIJOS.forEach(r => {
-      regRubro.innerHTML += `<option value="${r}">${r}</option>`;
-    });
+    RUBROS_FIJOS.forEach(r => { regRubro.innerHTML += `<option value="${r}">${r}</option>`; });
     if (act && RUBROS_FIJOS.includes(act)) regRubro.value = act;
   }
 
   if (filterRubro) {
     const act = filterRubro.value;
     filterRubro.innerHTML = `<option value="">TODOS LOS RUBROS</option>`;
-    RUBROS_FIJOS.forEach(r => {
-      filterRubro.innerHTML += `<option value="${r}">${r}</option>`;
-    });
+    RUBROS_FIJOS.forEach(r => { filterRubro.innerHTML += `<option value="${r}">${r}</option>`; });
     filterRubro.value = act;
   }
 
   if (selectRubroCocina) {
     const act = selectRubroCocina.value;
     selectRubroCocina.innerHTML = `<option value="">Todos los rubros...</option>`;
-    RUBROS_FIJOS.forEach(r => {
-      selectRubroCocina.innerHTML += `<option value="${r}">${r}</option>`;
-    });
+    RUBROS_FIJOS.forEach(r => { selectRubroCocina.innerHTML += `<option value="${r}">${r}</option>`; });
     selectRubroCocina.value = act;
   }
 }
@@ -266,13 +254,13 @@ function actualizarSubProductosInventario() {
   if (!selectProd) return;
 
   selectProd.innerHTML = `<option value="">Seleccione producto guardado...</option>`;
-  const listaProds = CATALOGO_PRODUCTOS_SUBDIVIDIDOS[rubroSel] || [];
-  listaProds.forEach(p => {
-    selectProd.innerHTML += `<option value="${p}">${p}</option>`;
+  const prodsGuardados = state.inventario.filter(i => i.rubro === rubroSel);
+  prodsGuardados.forEach(p => {
+    selectProd.innerHTML += `<option value="${p.producto}">${p.producto}</option>`;
   });
 }
 
-function cargarInsumoASupervisor(e) {
+async function cargarInsumoASupervisor(e) {
   e.preventDefault();
   const rubroFijo = document.getElementById("regRubroInsumo").value;
   const prodLista = document.getElementById("regSelectProductoInsumo").value;
@@ -282,41 +270,46 @@ function cargarInsumoASupervisor(e) {
   const stockMin = parseFloat(document.getElementById("regMinInsumo").value);
 
   const productoFinal = prodNuevoManual !== "" ? prodNuevoManual : prodLista;
-
   if (!productoFinal) {
-    alert("Por favor seleccione un producto de la lista o escriba un nombre de producto nuevo.");
+    alert("Seleccione un producto guardado o escriba uno nuevo.");
     return;
   }
 
-  // Guardar dinámicamente el nuevo producto en el catálogo del rubro fijo si es nuevo
-  if (prodNuevoManual !== "") {
-    if (!CATALOGO_PRODUCTOS_SUBDIVIDIDOS[rubroFijo]) {
-      CATALOGO_PRODUCTOS_SUBDIVIDIDOS[rubroFijo] = [];
-    }
-    if (!CATALOGO_PRODUCTOS_SUBDIVIDIDOS[rubroFijo].includes(prodNuevoManual)) {
-      CATALOGO_PRODUCTOS_SUBDIVIDIDOS[rubroFijo].push(prodNuevoManual);
-    }
-  }
-
   const exist = state.inventario.find(i => i.producto.toLowerCase() === productoFinal.toLowerCase() && i.rubro === rubroFijo);
+
   if (exist) {
-    exist.stock += stock;
-    exist.stockMin = stockMin;
-    exist.unidad = unidad;
-    alert(`Se actualizó el stock de "${exist.producto}" en ${rubroFijo}. Total: ${exist.stock} ${unidad}`);
+    const nuevoStock = exist.stock + stock;
+    const { error } = await db.from('productos').update({ stock: nuevoStock, stock_min: stockMin, unidad }).eq('id', exist.id);
+    if (!error) {
+      alert(`Stock actualizado a ${nuevoStock} ${unidad} en la Base de Datos.`);
+      await cargarInventarioBD();
+    }
   } else {
-    state.inventario.push({ id: Date.now(), rubro: rubroFijo, producto: productoFinal, unidad, stock, stockMin });
-    alert(`Producto "${productoFinal}" registrado y guardado exitosamente en el rubro ${rubroFijo}.`);
+    const { error } = await db.from('productos').insert([{
+      rubro: rubroFijo,
+      nombre: productoFinal,
+      unidad,
+      stock,
+      stock_min: stockMin
+    }]);
+
+    if (!error) {
+      alert(`Producto "${productoFinal}" guardado en Supabase.`);
+      await cargarInventarioBD();
+    }
   }
 
   document.getElementById("formNuevoInsumoInv").reset();
   renderAll();
 }
 
-function eliminarInsumo(id) {
-  if (confirm("¿Desea eliminar este producto del inventario?")) {
-    state.inventario = state.inventario.filter(i => i.id !== id);
-    renderAll();
+async function eliminarInsumo(id) {
+  if (confirm("¿Eliminar este producto de la Base de Datos?")) {
+    const { error } = await db.from('productos').delete().eq('id', id);
+    if (!error) {
+      await cargarInventarioBD();
+      renderAll();
+    }
   }
 }
 
@@ -350,43 +343,54 @@ function renderInventarioSup() {
   });
 }
 
-// CLIENTES
+// =========================================================================
+// MÓDULO: CLIENTES (SUPABASE)
+// =========================================================================
+async function cargarClientesBD() {
+  const { data, error } = await db.from('clientes').select('*');
+  if (!error && data) {
+    state.clientes = data;
+  }
+}
+
 function populateClientesDropdown() {
   const selCocina = document.getElementById("selectClientePlatoCocina");
   const selReporte = document.getElementById("filtroClienteCobros");
 
   if (selCocina) {
     selCocina.innerHTML = `<option value="">Seleccione cliente...</option>`;
-    state.clientes.forEach(c => {
-      selCocina.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`;
-    });
+    state.clientes.forEach(c => { selCocina.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`; });
   }
 
   if (selReporte) {
     const act = selReporte.value;
     selReporte.innerHTML = `<option value="">TODOS LOS CLIENTES</option>`;
-    state.clientes.forEach(c => {
-      selReporte.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`;
-    });
+    state.clientes.forEach(c => { selReporte.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`; });
     selReporte.value = act;
   }
 }
 
-function crearNuevoCliente(e) {
+async function crearNuevoCliente(e) {
   e.preventDefault();
   const nombre = document.getElementById("nombreClienteInput").value.trim();
   if (nombre) {
-    state.clientes.push({ id: Date.now(), nombre });
-    document.getElementById("formNuevoCliente").reset();
-    alert("Cliente registrado exitosamente.");
-    renderAll();
+    const { error } = await db.from('clientes').insert([{ nombre }]);
+    if (!error) {
+      alert("Cliente guardado.");
+      document.getElementById("formNuevoCliente").reset();
+      await cargarClientesBD();
+      renderAll();
+    }
   }
 }
 
-function eliminarCliente(id) {
-  if (confirm("¿Desea eliminar este cliente autorizado?")) {
-    state.clientes = state.clientes.filter(c => c.id !== id);
-    renderAll();
+async function eliminarCliente(id) {
+  if (confirm("¿Desea eliminar este cliente?")) {
+    const { error } = await db.from('clientes').delete().eq('id', id);
+    if (!error) {
+      await cargarClientesBD();
+      renderAll();
+    }
   }
 }
 
@@ -407,7 +411,16 @@ function renderClientesSup() {
   });
 }
 
-// INSUMOS COCINA
+// =========================================================================
+// MÓDULO: COCINA E INSUMOS (SUPABASE)
+// =========================================================================
+async function cargarConsumosBD() {
+  const { data, error } = await db.from('consumos_diarios').select('*');
+  if (!error && data) {
+    state.consumosDiarios = data;
+  }
+}
+
 function populateInsumosDropdownCocina() {
   const selectRubro = document.getElementById("selectRubroInsumo");
   const selectProd = document.getElementById("selectProductoInsumo");
@@ -425,7 +438,7 @@ function populateInsumosDropdownCocina() {
   });
 }
 
-function descontarInsumo(e) {
+async function descontarInsumo(e) {
   e.preventDefault();
   const prodId = parseInt(document.getElementById("selectProductoInsumo").value);
   const cant = parseFloat(document.getElementById("cantGastoInsumo").value);
@@ -433,24 +446,25 @@ function descontarInsumo(e) {
   const item = state.inventario.find(i => i.id === prodId);
   if (item) {
     if (cant > item.stock) {
-      alert("Atención: La cantidad gastada supera el stock disponible.");
+      alert("La cantidad gastada supera el stock disponible.");
       return;
     }
-    item.stock -= cant;
-
+    const nuevoStock = item.stock - cant;
     const fechaHoy = new Date().toISOString().split("T")[0];
-    state.consumosDiarios.push({
-      id: Date.now(),
+
+    await db.from('productos').update({ stock: nuevoStock }).eq('id', item.id);
+    await db.from('consumos_diarios').insert([{
       fecha: fechaHoy,
-      insumoId: item.id,
       producto: item.producto,
       rubro: item.rubro,
       cantidad: cant,
       unidad: item.unidad || 'Unid'
-    });
+    }]);
 
     alert(`Descontadas ${cant} ${item.unidad || 'unidades'} de ${item.producto}`);
     document.getElementById("formGastoInsumo").reset();
+    await cargarInventarioBD();
+    await cargarConsumosBD();
     renderAll();
   }
 }
@@ -464,7 +478,7 @@ function renderDiarioCocina() {
   const fechaSel = fechaInput.value;
 
   containerPlatos.innerHTML = "";
-  const platosFecha = state.registroComidas.filter(c => c.fechaFull === fechaSel);
+  const platosFecha = state.registroComidas.filter(c => c.fecha_full === fechaSel);
 
   if (platosFecha.length === 0) {
     containerPlatos.innerHTML = "<p class='description'>No hay registros de platos para esta fecha.</p>";
@@ -472,7 +486,7 @@ function renderDiarioCocina() {
     platosFecha.forEach(p => {
       containerPlatos.innerHTML += `
         <div class="plato-diario-card">
-          <img src="${p.fotoUrl}" class="img-thumb" style="width: 60px; height: 60px;" onclick="verFotoModal('${p.fotoUrl}')"/>
+          <img src="${p.foto_url}" class="img-thumb" style="width: 60px; height: 60px;" onclick="verFotoModal('${p.foto_url}')"/>
           <div>
             <strong>${p.nombre} (${p.tipo})</strong><br/>
             <small>Cliente: ${p.cliente} | Cantidad: <strong>${p.cantidad} Raciones</strong></small>
@@ -500,6 +514,16 @@ function renderDiarioCocina() {
   }
 }
 
+// =========================================================================
+// MÓDULO: COMIDAS SERVIDAS (SUPABASE)
+// =========================================================================
+async function cargarComidasBD() {
+  const { data, error } = await db.from('comidas_servidas').select('*');
+  if (!error && data) {
+    state.registroComidas = data;
+  }
+}
+
 function populateTiposPlatosDropdown() {
   const select = document.getElementById("selectTipoPlato");
   if (!select) return;
@@ -511,7 +535,7 @@ function populateTiposPlatosDropdown() {
   select.value = valActual;
 }
 
-function guardarPlatoDia(e) {
+async function guardarPlatoDia(e) {
   e.preventDefault();
   const tipo = document.getElementById("selectTipoPlato").value;
   const nombre = document.getElementById("nombrePlato").value.trim();
@@ -526,23 +550,26 @@ function guardarPlatoDia(e) {
 
   const fechaObj = new Date();
   const fechaHoy = fechaObj.toISOString().split("T")[0];
+  const horaStr = fechaObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  state.registroComidas.push({
-    id: Date.now(),
-    fechaFull: fechaHoy,
-    hora: fechaObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+  const { error } = await db.from('comidas_servidas').insert([{
+    fecha_full: fechaHoy,
+    hora: horaStr,
     tipo,
     nombre,
     cliente,
     cantidad,
-    fotoUrl,
+    foto_url: fotoUrl,
     pagado: false
-  });
+  }]);
 
-  document.getElementById("formPlatoDia").reset();
-  document.getElementById("previewFoto").classList.add("hidden");
-  alert("Plato registrado correctamente.");
-  renderAll();
+  if (!error) {
+    document.getElementById("formPlatoDia").reset();
+    document.getElementById("previewFoto").classList.add("hidden");
+    alert("Plato registrado correctamente en la Base de Datos.");
+    await cargarComidasBD();
+    renderAll();
+  }
 }
 
 function renderPlatosHoy() {
@@ -551,10 +578,10 @@ function renderPlatosHoy() {
   const hoyStr = new Date().toISOString().split("T")[0];
   tbody.innerHTML = "";
   
-  state.registroComidas.filter(c => c.fechaFull === hoyStr).forEach(item => {
+  state.registroComidas.filter(c => c.fecha_full === hoyStr).forEach(item => {
     tbody.innerHTML += `
       <tr>
-        <td><img src="${item.fotoUrl}" class="img-thumb" onclick="verFotoModal('${item.fotoUrl}')"/></td>
+        <td><img src="${item.foto_url}" class="img-thumb" onclick="verFotoModal('${item.foto_url}')"/></td>
         <td>${item.tipo}</td>
         <td>${item.cliente}</td>
         <td><strong>${item.cantidad}</strong></td>
@@ -563,10 +590,12 @@ function renderPlatosHoy() {
   });
 }
 
-function togglePagoComida(id) {
+async function togglePagoComida(id) {
   const item = state.registroComidas.find(c => c.id === id);
   if (item) {
-    item.pagado = !item.pagado;
+    const nuevoEstado = !item.pagado;
+    await db.from('comidas_servidas').update({ pagado: nuevoEstado }).eq('id', id);
+    await cargarComidasBD();
     renderAll();
   }
 }
@@ -597,8 +626,8 @@ function renderReportesCocina() {
       const totalNeto = (precio * item.cantidad).toFixed(2);
       tbody.innerHTML += `
         <tr>
-          <td>${item.fechaFull} ${item.hora}</td>
-          <td><img src="${item.fotoUrl}" class="img-thumb" onclick="verFotoModal('${item.fotoUrl}')"/></td>
+          <td>${item.fecha_full} ${item.hora || ''}</td>
+          <td><img src="${item.foto_url}" class="img-thumb" onclick="verFotoModal('${item.foto_url}')"/></td>
           <td><strong>${item.cliente}</strong></td>
           <td>${item.tipo}</td>
           <td>${item.nombre}</td>
@@ -647,8 +676,46 @@ function renderGastosInsumosSup() {
   }
 }
 
-// NÓMINA - CÁLCULO PRECISO Y CONTROL DE PAGO PAGADO/PENDIENTE
-function guardarEmpleadoSubmit(e) {
+// =========================================================================
+// MÓDULO: NÓMINA, ASISTENCIAS Y PAGOS (SUPABASE)
+// =========================================================================
+async function cargarEmpleadosBD() {
+  const { data, error } = await db.from('empleados').select('*');
+  if (!error && data) {
+    state.nomina = data.map(e => ({
+      id: e.id,
+      cedula: e.cedula,
+      nombre: e.nombre,
+      cargo: e.cargo,
+      sueldoMensual: parseFloat(e.sueldo_mensual),
+      banco: e.banco,
+      telefono: e.telefono
+    }));
+  }
+}
+
+async function cargarAsistenciasBD() {
+  const { data, error } = await db.from('asistencias').select('*');
+  if (!error && data) {
+    state.asistencias = data;
+  }
+}
+
+async function cargarPagosNominaBD() {
+  const { data, error } = await db.from('pagos_nomina').select('*');
+  if (!error && data) {
+    state.pagosNomina = {};
+    data.forEach(p => {
+      state.pagosNomina[p.clave_pago] = {
+        pagado: p.pagado,
+        montoUSD: parseFloat(p.monto_usd),
+        montoBS: parseFloat(p.monto_bs)
+      };
+    });
+  }
+}
+
+async function guardarEmpleadoSubmit(e) {
   e.preventDefault();
   const idEdit = document.getElementById("editEmpId").value;
   const cedula = document.getElementById("cedulaEmpleado").value.trim();
@@ -659,26 +726,19 @@ function guardarEmpleadoSubmit(e) {
   const telefono = document.getElementById("telefonoEmpleado").value.trim();
 
   if (idEdit) {
-    const emp = state.nomina.find(e => e.id === parseInt(idEdit));
-    if (emp) {
-      emp.cedula = cedula;
-      emp.nombre = nombre;
-      emp.cargo = cargo;
-      emp.sueldoMensual = sueldoMensual;
-      emp.banco = banco;
-      emp.telefono = telefono;
-      alert("Empleado actualizado.");
-    }
+    await db.from('empleados').update({
+      cedula, nombre, cargo, sueldo_mensual: sueldoMensual, banco, telefono
+    }).eq('id', parseInt(idEdit));
+    alert("Empleado actualizado.");
   } else {
-    if (state.nomina.some(e => e.cedula === cedula)) {
-      alert("Cédula ya registrada.");
-      return;
-    }
-    state.nomina.push({ id: Date.now(), cedula, nombre, cargo, sueldoMensual, banco, telefono });
-    alert("Empleado registrado.");
+    await db.from('empleados').insert([{
+      cedula, nombre, cargo, sueldo_mensual: sueldoMensual, banco, telefono
+    }]);
+    alert("Empleado guardado.");
   }
 
   resetFormEmpleado();
+  await cargarEmpleadosBD();
   renderAll();
 }
 
@@ -699,9 +759,10 @@ function editarEmpleado(id) {
   }
 }
 
-function eliminarEmpleado(id) {
-  if (confirm("¿Desea eliminar a este trabajador de la nómina?")) {
-    state.nomina = state.nomina.filter(e => e.id !== id);
+async function eliminarEmpleado(id) {
+  if (confirm("¿Desea eliminar a este trabajador?")) {
+    await db.from('empleados').delete().eq('id', id);
+    await cargarEmpleadosBD();
     renderAll();
   }
 }
@@ -768,14 +829,18 @@ function renderNominaCocina() {
   });
 }
 
-function marcarAsistencia(fecha, cedula) {
+async function marcarAsistencia(fecha, cedula) {
   let registro = state.asistencias.find(a => a.fecha === fecha && a.cedula === cedula);
-  if (registro) {
-    registro.presente = !registro.presente;
-  } else {
-    state.asistencias.push({ fecha, cedula, presente: true });
+  const nuevoEstado = registro ? !registro.presente : true;
+
+  const { error } = await db.from('asistencias').upsert([{
+    cedula, fecha, presente: nuevoEstado
+  }], { onConflict: 'cedula,fecha' });
+
+  if (!error) {
+    await cargarAsistenciasBD();
+    renderAll();
   }
-  renderAll();
 }
 
 function renderNominaSup() {
@@ -784,24 +849,21 @@ function renderNominaSup() {
   const filtroQuin = document.getElementById("filtroQuincenaNomina");
   if (!tbody || !filtroMes || !filtroQuin) return;
 
-  const mesSel = filtroMes.value; // Formato "YYYY-MM"
+  const mesSel = filtroMes.value;
   const quincenaSel = filtroQuin.value;
   tbody.innerHTML = "";
 
   state.nomina.forEach(emp => {
     const pagoDia = emp.sueldoMensual / 30;
 
-    // Conteo flexible de días asistidos en el periodo
     const asistenciasEmp = state.asistencias.filter(a => {
       if (!a.fecha || a.cedula !== emp.cedula || !a.presente) return false;
-      
-      const coincideMes = a.fecha.startsWith(mesSel);
-      if (!coincideMes) return false;
+      if (!a.fecha.startsWith(mesSel)) return false;
 
       const dia = parseInt(a.fecha.split("-")[2], 10);
       if (quincenaSel === "Q1") return dia >= 1 && dia <= 15;
       if (quincenaSel === "Q2") return dia >= 16 && dia <= 31;
-      return true; // MES COMPLETO
+      return true;
     });
 
     const diasTrabajados = asistenciasEmp.length;
@@ -829,7 +891,7 @@ function renderNominaSup() {
         </td>
         <td>
           <div style="display:flex; gap:5px;">
-            <button class="btn btn-sm ${estaPagado ? 'btn-secondary' : 'btn-success'}" onclick="togglePagoNominaTrabajador('${clavePago}', ${totalUSD}, ${totalBS})">
+            <button class="btn btn-sm ${estaPagado ? 'btn-secondary' : 'btn-success'}" onclick="togglePagoNominaTrabajador('${clavePago}', '${emp.cedula}', '${mesSel}', '${quincenaSel}', ${totalUSD}, ${totalBS})">
               ${estaPagado ? 'Marcar Pendiente' : 'Marcar PAGADO'}
             </button>
             <button class="btn btn-sm btn-secondary" onclick="copiarPagoMovil('${encodeURIComponent(textoCopiar)}')">
@@ -842,14 +904,24 @@ function renderNominaSup() {
   });
 }
 
-function togglePagoNominaTrabajador(clavePago, montoUSD, montoBS) {
-  if (!state.pagosNomina[clavePago]) {
-    state.pagosNomina[clavePago] = { pagado: true, fechaPago: new Date().toLocaleDateString(), montoUSD, montoBS };
-    alert("Pago registrado correctamente como PAGADO.");
-  } else {
-    state.pagosNomina[clavePago].pagado = !state.pagosNomina[clavePago].pagado;
+async function togglePagoNominaTrabajador(clavePago, cedula, mes, quincena, montoUSD, montoBS) {
+  const actual = state.pagosNomina[clavePago];
+  const nuevoEstado = actual ? !actual.pagado : true;
+
+  const { error } = await db.from('pagos_nomina').upsert([{
+    clave_pago: clavePago,
+    cedula,
+    mes,
+    quincena,
+    monto_usd: montoUSD,
+    monto_bs: montoBS,
+    pagado: nuevoEstado
+  }], { onConflict: 'clave_pago' });
+
+  if (!error) {
+    await cargarPagosNominaBD();
+    renderAll();
   }
-  renderAll();
 }
 
 function copiarPagoMovil(strEncoded) {
@@ -899,7 +971,7 @@ function renderDashboardSup() {
   if (!statComidas) return;
 
   const hoyStr = new Date().toISOString().split("T")[0];
-  const comidasHoy = state.registroComidas.filter(c => c.fechaFull === hoyStr);
+  const comidasHoy = state.registroComidas.filter(c => c.fecha_full === hoyStr);
   const totalServidos = comidasHoy.reduce((acc, curr) => acc + curr.cantidad, 0);
 
   let totalVentas = 0;
@@ -943,7 +1015,6 @@ function irAInventario() {
   if (btnInv) btnInv.click();
 }
 
-// OTROS
 function crearNuevoPlato(e) {
   e.preventDefault();
   const nombre = document.getElementById("nombreNuevoPlato").value.trim();
@@ -1007,12 +1078,12 @@ function descargarModeloExcel() {
   XLSX.writeFile(wb, "Modelo_Inventario_Sazon_Helem.xlsx");
 }
 
-function cargarInventarioExcel(e) {
+async function cargarInventarioExcel(e) {
   const file = e.target.files[0];
   if (!file) return;
 
   const reader = new FileReader();
-  reader.onload = function(evt) {
+  reader.onload = async function(evt) {
     try {
       const data = new Uint8Array(evt.target.result);
       const workbook = XLSX.read(data, { type: 'array' });
@@ -1030,28 +1101,19 @@ function cargarInventarioExcel(e) {
           const stockMin = parseFloat(row[4]) || 0;
 
           if (RUBROS_FIJOS.includes(rubro)) {
-            if (!CATALOGO_PRODUCTOS_SUBDIVIDIDOS[rubro].includes(producto)) {
-              CATALOGO_PRODUCTOS_SUBDIVIDIDOS[rubro].push(producto);
-            }
-
-            const exist = state.inventario.find(inv => inv.producto.toLowerCase() === producto.toLowerCase());
-            if (exist) {
-              exist.rubro = rubro;
-              exist.unidad = unidad;
-              exist.stock = stock;
-              exist.stockMin = stockMin;
-            } else {
-              state.inventario.push({ id: Date.now() + i, rubro, producto, unidad, stock, stockMin });
-            }
+            await db.from('productos').insert([{
+              rubro, nombre: producto, unidad, stock, stock_min: stockMin
+            }]);
             cargados++;
           }
         }
       }
-      alert(`Se cargaron ${cargados} productos.`);
+      alert(`Se cargaron ${cargados} productos a Supabase.`);
       document.getElementById("inputExcelInventario").value = "";
+      await cargarInventarioBD();
       renderAll();
     } catch (err) {
-      alert("Error leyendo el Excel.");
+      alert("Error leyendo el archivo Excel.");
     }
   };
   reader.readAsArrayBuffer(file);
@@ -1067,7 +1129,7 @@ function exportarComidasExcel() {
     if (!filtroCliente || item.cliente === filtroCliente) {
       const precio = state.preciosPlatos[item.tipo] || 0;
       data.push([
-        item.fechaFull,
+        item.fecha_full,
         item.hora,
         item.cliente,
         item.tipo,

@@ -9,6 +9,8 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <!-- Librería SheetJS para Excel -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Cliente oficial de Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Estilos Personalizados -->
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -41,7 +43,7 @@
       </form>
 
       <div class="demo-credentials">
-        <p><strong>Cuentas de Prueba:</strong></p>
+        <p><strong>Cuentas de Acceso:</strong></p>
         <ul>
           <li><strong>Jefa de Cocina:</strong> cocina / 1234</li>
           <li><strong>Supervisor:</strong> supervisor / 1234</li>
@@ -115,7 +117,7 @@
                 </div>
                 <div class="form-group">
                   <label>Descripción del Plato</label>
-                  <input type="text" id="nombrePlato" placeholder="Ej: Pure de Papas con Pollo Al Horno" required />
+                  <input type="text" id="nombrePlato" placeholder="Ej: Puré de Papas con Pollo al Horno" required />
                 </div>
                 <div class="form-group">
                   <label>Cliente Autorizado</label>
@@ -255,7 +257,7 @@
             </div>
           </div>
 
-          <!-- ALERTAS DEBAJO -->
+          <!-- ALERTAS DEBAJO DE LOS PLATOS -->
           <div id="alertasCenterBox" class="center-alerts-panel"></div>
         </section>
 
@@ -290,7 +292,7 @@
           </div>
         </section>
 
-        <!-- INVENTARIO CON RUBRO FIJO Y SUBDIVISIÓN DE PRODUCTOS GUARDADOS -->
+        <!-- INVENTARIO CON RUBROS FIJOS Y GUARDADO DE PRODUCTOS EN SUPABASE -->
         <section id="secInventarioSup" class="content-section hidden">
           <h2><i class="fas fa-warehouse"></i> Control de Inventario y Subdivisión de Rubros</h2>
           
@@ -306,7 +308,6 @@
           </div>
 
           <div class="card-grid">
-            <!-- Formulario de Insumo con Productos Dinámicos en Rubro Fijo -->
             <div class="card">
               <h3>Cargar / Registrar Producto en Rubro</h3>
               <form id="formNuevoInsumoInv">
@@ -320,7 +321,7 @@
                 </div>
                 <div class="form-group">
                   <label>O Escribir Producto Nuevo para este Rubro (Se Guardará)</label>
-                  <input type="text" id="regNuevoProductoManual" placeholder="Ej: Carne de Lagarto, Chuleta Ahumada, Adobo..." />
+                  <input type="text" id="regNuevoProductoManual" placeholder="Ej: Carne de Lagarto, Chuleta Ahumada..." />
                 </div>
                 <div class="form-group">
                   <label>Unidad de Medida</label>
@@ -345,7 +346,6 @@
               </form>
             </div>
 
-            <!-- Buscador Dinámico -->
             <div class="card">
               <h3>Buscador e Inspección de Productos</h3>
               <div class="form-group">
@@ -481,7 +481,7 @@
           </div>
         </section>
 
-        <!-- NÓMINA CON CONTROL DE ESTADO DE PAGO (PAGADO / PENDIENTE) Y CÁLCULO PRECISO -->
+        <!-- NÓMINA -->
         <section id="secNominaSup" class="content-section hidden">
           <h2><i class="fas fa-money-bill-wave"></i> Liquidación de Nómina y Control de Pagos</h2>
 
@@ -566,7 +566,6 @@
             </div>
           </div>
 
-          <!-- Resultados con Estatus Pagado/Pendiente -->
           <div class="card">
             <h3>Resultados de Liquidación y Registro de Pagos por Trabajador</h3>
             <div class="table-responsive">
