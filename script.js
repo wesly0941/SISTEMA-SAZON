@@ -621,9 +621,9 @@ async function guardarPlatoDia(e) {
   const cantidad = parseInt(document.getElementById("cantServida").value);
   const imgElem = document.getElementById("tempBase64Img");
 
-  let fotoUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="; // Transparente por defecto
+  let fotoUrl = "https://via.placeholder.com/60?text=Plato"; 
   if (imgElem && imgElem.src) {
-    fotoUrl = imgElem.src;
+    fotoUrl = imgElem.src; // Captura el Base64 correcto generado por el FileReader
   }
 
   const fechaObj = new Date();
@@ -644,9 +644,11 @@ async function guardarPlatoDia(e) {
   if (!error) {
     document.getElementById("formPlatoDia").reset();
     document.getElementById("previewFoto").classList.add("hidden");
-    alert("Plato registrado correctamente en la Base de Datos.");
+    alert("¡Plato registrado correctamente en la Base de Datos!");
     await cargarComidasBD();
     renderAll();
+  } else {
+    alert("Error al guardar: " + error.message);
   }
 }
 
@@ -759,13 +761,12 @@ function renderGastosInsumosSup() {
 // =========================================================================
 async function generarPDFFichaComidas() {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF('p', 'mm', 'a4'); // Formato A4
+  const doc = new jsPDF('p', 'mm', 'a4');
   
   const clienteSel = document.getElementById("pdfSelectCliente").value;
   const fechaSel = document.getElementById("pdfFechaComidas").value;
   const tipoSel = document.getElementById("pdfSelectTipoComida").value;
 
-  // Filtrado por Cliente, Fecha y Tipo
   const comidasFiltradas = state.registroComidas.filter(c => {
     const matchFecha = c.fecha_full === fechaSel;
     const matchCliente = !clienteSel || c.cliente === clienteSel;
@@ -773,8 +774,7 @@ async function generarPDFFichaComidas() {
     return matchFecha && matchCliente && matchTipo;
   });
 
-  // Encabezado institucional
-  doc.setFillColor(139, 30, 63); // Guinda
+  doc.setFillColor(139, 30, 63); 
   doc.rect(0, 0, 210, 30, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(16);
@@ -796,7 +796,6 @@ async function generarPDFFichaComidas() {
     let granTotalUSD = 0;
 
     comidasFiltradas.forEach((item, index) => {
-      // Si la ficha no cabe en la hoja, agregar página
       if (y > 240) {
         doc.addPage();
         y = 20;
@@ -806,17 +805,14 @@ async function generarPDFFichaComidas() {
       const totalNeto = precioUnit * item.cantidad;
       granTotalUSD += totalNeto;
 
-      // Recuadro Ficha Compacta (Media Página / Tarjeta)
       doc.setDrawColor(212, 175, 55);
       doc.setFillColor(252, 250, 246);
       doc.roundedRect(14, y, 182, 45, 3, 3, 'FD');
 
-      // Intentar renderizar la FOTO REAL
       if (item.foto_url && item.foto_url.startsWith("data:image")) {
         try {
           doc.addImage(item.foto_url, 'JPEG', 18, y + 5, 35, 35);
         } catch (e) {
-          // Si falla formato, recuadro alternativo
           doc.rect(18, y + 5, 35, 35);
           doc.setFontSize(8);
           doc.text("Sin Foto", 28, y + 23);
@@ -829,7 +825,6 @@ async function generarPDFFichaComidas() {
         doc.text("Foto N/A", 28, y + 23);
       }
 
-      // Información de la Ficha
       doc.setTextColor(139, 30, 63);
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
@@ -850,7 +845,6 @@ async function generarPDFFichaComidas() {
       y += 50;
     });
 
-    // Total General al final de la ficha
     if (y > 260) {
       doc.addPage();
       y = 20;
@@ -872,10 +866,8 @@ async function generarPDFRubrosInventario() {
   const doc = new jsPDF('p', 'mm', 'a4');
   const fechaSel = document.getElementById("pdfFechaInsumos").value;
 
-  // Filtrar insumos gastados en la fecha
   const consumosFecha = state.consumosDiarios.filter(c => c.fecha === fechaSel);
 
-  // Encabezado institucional
   doc.setFillColor(11, 37, 69);
   doc.rect(0, 0, 210, 30, 'F');
   doc.setTextColor(255, 255, 255);
@@ -889,7 +881,6 @@ async function generarPDFRubrosInventario() {
 
   let y = 38;
 
-  // SECCIÓN 1: INSUMOS GASTADOS EN LA PREPARACIÓN DEL DÍA
   doc.setTextColor(139, 30, 63);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
@@ -924,7 +915,6 @@ async function generarPDFRubrosInventario() {
     y += 6;
   }
 
-  // SECCIÓN 2: INVENTARIO GENERAL DISPONIBLE
   if (y > 220) { doc.addPage(); y = 20; }
 
   doc.setTextColor(139, 30, 63);
