@@ -159,20 +159,6 @@ body {
   font-size: 0.85em;
 }
 
-.demo-credentials {
-  margin-top: 25px;
-  padding-top: 15px;
-  border-top: 1px solid #EEE;
-  font-size: 0.85em;
-  text-align: left;
-  color: var(--color-text-muted);
-}
-
-.demo-credentials ul {
-  list-style: none;
-  margin-top: 5px;
-}
-
 .navbar {
   background-color: var(--color-primary);
   color: #FFF;
