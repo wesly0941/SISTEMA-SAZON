@@ -38,6 +38,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (document.getElementById("filtroFechaDiario")) document.getElementById("filtroFechaDiario").value = hoyStr;
   if (document.getElementById("filtroFechaAsistenciaSup")) document.getElementById("filtroFechaAsistenciaSup").value = hoyStr;
   if (document.getElementById("filtroFechaGastosSup")) document.getElementById("filtroFechaGastosSup").value = hoyStr;
+  if (document.getElementById("pdfFechaComidas")) document.getElementById("pdfFechaComidas").value = hoyStr;
+  if (document.getElementById("pdfFechaInsumos")) document.getElementById("pdfFechaInsumos").value = hoyStr;
 
   const mesInput = document.getElementById("filtroMesNomina");
   if (mesInput) {
@@ -149,7 +151,7 @@ function setupEvents() {
   if (document.getElementById("btnExportarComidasExcel")) document.getElementById("btnExportarComidasExcel").addEventListener("click", exportarComidasExcel);
   if (document.getElementById("btnExportarNominaExcel")) document.getElementById("btnExportarNominaExcel").addEventListener("click", exportarNominaExcel);
 
-  // Preview Foto
+  // Preview Foto y conversión a Base64
   const inputFoto = document.getElementById("fotoPlato");
   if (inputFoto) {
     inputFoto.addEventListener("change", (e) => {
@@ -158,7 +160,7 @@ function setupEvents() {
       if (file && preview) {
         const reader = new FileReader();
         reader.onload = function(evt) {
-          preview.innerHTML = `<img src="${evt.target.result}" alt="Preview" />`;
+          preview.innerHTML = `<img src="${evt.target.result}" id="tempBase64Img" alt="Preview" />`;
           preview.classList.remove("hidden");
         };
         reader.readAsDataURL(file);
@@ -416,6 +418,7 @@ async function cargarClientesBD() {
 function populateClientesDropdown() {
   const selCocina = document.getElementById("selectClientePlatoCocina");
   const selReporte = document.getElementById("filtroClienteCobros");
+  const selPdf = document.getElementById("pdfSelectCliente");
 
   if (selCocina) {
     selCocina.innerHTML = `<option value="">Seleccione cliente...</option>`;
@@ -427,6 +430,11 @@ function populateClientesDropdown() {
     selReporte.innerHTML = `<option value="">TODOS LOS CLIENTES</option>`;
     state.clientes.forEach(c => { selReporte.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`; });
     selReporte.value = act;
+  }
+
+  if (selPdf) {
+    selPdf.innerHTML = `<option value="">TODOS LOS CLIENTES</option>`;
+    state.clientes.forEach(c => { selPdf.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`; });
   }
 }
 
@@ -586,13 +594,23 @@ async function cargarComidasBD() {
 
 function populateTiposPlatosDropdown() {
   const select = document.getElementById("selectTipoPlato");
-  if (!select) return;
-  const valActual = select.value;
-  select.innerHTML = `<option value="">Seleccione tipo...</option>`;
-  Object.keys(state.preciosPlatos).forEach(tipo => {
-    select.innerHTML += `<option value="${tipo}">${tipo}</option>`;
-  });
-  select.value = valActual;
+  const selectPdf = document.getElementById("pdfSelectTipoComida");
+
+  if (select) {
+    const valActual = select.value;
+    select.innerHTML = `<option value="">Seleccione tipo...</option>`;
+    Object.keys(state.preciosPlatos).forEach(tipo => {
+      select.innerHTML += `<option value="${tipo}">${tipo}</option>`;
+    });
+    select.value = valActual;
+  }
+
+  if (selectPdf) {
+    selectPdf.innerHTML = `<option value="">TODAS LAS COMIDAS</option>`;
+    Object.keys(state.preciosPlatos).forEach(tipo => {
+      selectPdf.innerHTML += `<option value="${tipo}">${tipo}</option>`;
+    });
+  }
 }
 
 async function guardarPlatoDia(e) {
@@ -601,11 +619,11 @@ async function guardarPlatoDia(e) {
   const nombre = document.getElementById("nombrePlato").value.trim();
   const cliente = document.getElementById("selectClientePlatoCocina").value;
   const cantidad = parseInt(document.getElementById("cantServida").value);
-  const fileInput = document.getElementById("fotoPlato");
+  const imgElem = document.getElementById("tempBase64Img");
 
-  let fotoUrl = "https://via.placeholder.com/60?text=Plato";
-  if (fileInput.files && fileInput.files[0]) {
-    fotoUrl = URL.createObjectURL(fileInput.files[0]);
+  let fotoUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="; // Transparente por defecto
+  if (imgElem && imgElem.src) {
+    fotoUrl = imgElem.src;
   }
 
   const fechaObj = new Date();
@@ -737,115 +755,214 @@ function renderGastosInsumosSup() {
 }
 
 // =========================================================================
-// MÓDULO: GENERACIÓN DE REPORTES PDF PROFESIONALES (TIPO FICHA)
+// MÓDULO: GENERACIÓN DE REPORTES PDF MEJORADOS (FICHA CLIENTE & REPORTE INSUMOS)
 // =========================================================================
 async function generarPDFFichaComidas() {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  const hoyStr = new Date().toISOString().split("T")[0];
-  const comidasHoy = state.registroComidas.filter(c => c.fecha_full === hoyStr);
+  const doc = new jsPDF('p', 'mm', 'a4'); // Formato A4
+  
+  const clienteSel = document.getElementById("pdfSelectCliente").value;
+  const fechaSel = document.getElementById("pdfFechaComidas").value;
+  const tipoSel = document.getElementById("pdfSelectTipoComida").value;
+
+  // Filtrado por Cliente, Fecha y Tipo
+  const comidasFiltradas = state.registroComidas.filter(c => {
+    const matchFecha = c.fecha_full === fechaSel;
+    const matchCliente = !clienteSel || c.cliente === clienteSel;
+    const matchTipo = !tipoSel || c.tipo === tipoSel;
+    return matchFecha && matchCliente && matchTipo;
+  });
 
   // Encabezado institucional
-  doc.setFillColor(139, 30, 63); // Guinda Sazón de Helem
-  doc.rect(0, 0, 210, 35, 'F');
+  doc.setFillColor(139, 30, 63); // Guinda
+  doc.rect(0, 0, 210, 30, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(16);
-  doc.text("EL SAZÓN DE HELEM C.A.", 15, 15);
+  doc.setFont("helvetica", "bold");
+  doc.text("EL SAZÓN DE HELEM C.A.", 14, 14);
   doc.setFontSize(10);
-  doc.text("FICHA DIARIA DE COMIDAS SERVIDAS Y COSTOS SIN IVA", 15, 24);
-  doc.text(`Fecha: ${hoyStr}`, 160, 24);
+  doc.setFont("helvetica", "normal");
+  doc.text("FICHA DIARIA DE SERVICIO DE COMIDAS", 14, 22);
+  doc.text(`Fecha: ${fechaSel}`, 160, 14);
+  if (clienteSel) doc.text(`Cliente: ${clienteSel}`, 160, 22);
 
-  let y = 45;
-  if (comidasHoy.length === 0) {
+  let y = 38;
+
+  if (comidasFiltradas.length === 0) {
     doc.setTextColor(40, 40, 40);
-    doc.setFontSize(12);
-    doc.text("No hay platos registrados en el día de hoy.", 15, y);
+    doc.setFontSize(11);
+    doc.text("No existen registros de comidas para los filtros seleccionados.", 14, y);
   } else {
-    comidasHoy.forEach((item, index) => {
-      if (y > 250) {
+    let granTotalUSD = 0;
+
+    comidasFiltradas.forEach((item, index) => {
+      // Si la ficha no cabe en la hoja, agregar página
+      if (y > 240) {
         doc.addPage();
         y = 20;
       }
 
       const precioUnit = state.preciosPlatos[item.tipo] || 0;
-      const costoTotalSinIVA = (precioUnit * item.cantidad).toFixed(2);
+      const totalNeto = precioUnit * item.cantidad;
+      granTotalUSD += totalNeto;
 
-      // Recuadro tipo ficha
+      // Recuadro Ficha Compacta (Media Página / Tarjeta)
       doc.setDrawColor(212, 175, 55);
-      doc.setFillColor(250, 248, 245);
-      doc.roundedRect(15, y, 180, 38, 3, 3, 'FD');
+      doc.setFillColor(252, 250, 246);
+      doc.roundedRect(14, y, 182, 45, 3, 3, 'FD');
 
+      // Intentar renderizar la FOTO REAL
+      if (item.foto_url && item.foto_url.startsWith("data:image")) {
+        try {
+          doc.addImage(item.foto_url, 'JPEG', 18, y + 5, 35, 35);
+        } catch (e) {
+          // Si falla formato, recuadro alternativo
+          doc.rect(18, y + 5, 35, 35);
+          doc.setFontSize(8);
+          doc.text("Sin Foto", 28, y + 23);
+        }
+      } else {
+        doc.setDrawColor(200, 200, 200);
+        doc.rect(18, y + 5, 35, 35);
+        doc.setFontSize(8);
+        doc.setTextColor(100, 100, 100);
+        doc.text("Foto N/A", 28, y + 23);
+      }
+
+      // Información de la Ficha
       doc.setTextColor(139, 30, 63);
       doc.setFontSize(12);
-      doc.text(`Ficha #${index + 1} - Categoría: ${item.tipo.toUpperCase()}`, 20, y + 8);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${index + 1}. ${item.nombre}`, 58, y + 10);
 
-      doc.setTextColor(44, 44, 44);
+      doc.setTextColor(50, 50, 50);
       doc.setFontSize(10);
-      doc.text(`Descripción del Plato: ${item.nombre}`, 20, y + 16);
-      doc.text(`Cliente Autorizado: ${item.cliente}`, 20, y + 23);
-      doc.text(`Cantidad de Platos (Raciones): ${item.cantidad}`, 20, y + 30);
-      doc.text(`Costo Total (Sin IVA): $${costoTotalSinIVA}`, 130, y + 30);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Cliente: ${item.cliente}`, 58, y + 18);
+      doc.text(`Categoría: ${item.tipo}`, 58, y + 25);
+      doc.text(`Cantidad Servida: ${item.cantidad} Raciones`, 58, y + 32);
 
-      y += 46;
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(139, 30, 63);
+      doc.text(`Precio Unitario: $${precioUnit.toFixed(2)}`, 130, y + 25);
+      doc.text(`Subtotal (Sin IVA): $${totalNeto.toFixed(2)}`, 130, y + 32);
+
+      y += 50;
     });
+
+    // Total General al final de la ficha
+    if (y > 260) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.setFillColor(212, 175, 55);
+    doc.rect(14, y, 182, 10, 'F');
+    doc.setTextColor(139, 30, 63);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text(`TOTAL FACTURADO DEL DÍA (SIN IVA): $${granTotalUSD.toFixed(2)} USD`, 20, y + 7);
   }
 
-  doc.save(`Ficha_Comidas_${hoyStr}.pdf`);
+  const nombreArchivo = clienteSel ? `Ficha_${clienteSel.replace(/\s+/g, '_')}_${fechaSel}.pdf` : `Ficha_Comidas_General_${fechaSel}.pdf`;
+  doc.save(nombreArchivo);
 }
 
 async function generarPDFRubrosInventario() {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const fechaSel = document.getElementById("pdfFechaInsumos").value;
 
-  // Ordenar inventario de mayor a menor según el stock actual
-  const inventarioOrdenado = [...state.inventario].sort((a, b) => b.stock - a.stock);
+  // Filtrar insumos gastados en la fecha
+  const consumosFecha = state.consumosDiarios.filter(c => c.fecha === fechaSel);
 
   // Encabezado institucional
   doc.setFillColor(11, 37, 69);
-  doc.rect(0, 0, 210, 35, 'F');
+  doc.rect(0, 0, 210, 30, 'F');
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(16);
-  doc.text("EL SAZÓN DE HELEM C.A.", 15, 15);
+  doc.setFontSize(15);
+  doc.setFont("helvetica", "bold");
+  doc.text("EL SAZÓN DE HELEM C.A.", 14, 14);
   doc.setFontSize(10);
-  doc.text("REPORTE DE INVENTARIO Y GASTOS POR RUBRO (MAYOR A MENOR)", 15, 24);
+  doc.setFont("helvetica", "normal");
+  doc.text("REPORTE DIARIO DE GASTOS DE INSUMOS E INVENTARIO POR RUBRO", 14, 22);
+  doc.text(`Fecha: ${fechaSel}`, 160, 14);
 
-  let y = 45;
-  doc.setTextColor(44, 44, 44);
-  doc.setFontSize(11);
+  let y = 38;
 
-  // Cabecera de la tabla PDF
+  // SECCIÓN 1: INSUMOS GASTADOS EN LA PREPARACIÓN DEL DÍA
+  doc.setTextColor(139, 30, 63);
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text("1. Insumos Consumidos en las Preparaciones del Día", 14, y);
+  y += 6;
+
   doc.setFillColor(212, 175, 55);
-  doc.rect(15, y, 180, 8, 'F');
+  doc.rect(14, y, 182, 7, 'F');
   doc.setTextColor(11, 37, 69);
-  doc.text("Rubro", 18, y + 6);
-  doc.text("Producto / Insumo", 75, y + 6);
-  doc.text("Stock Restante", 145, y + 6);
-  doc.text("Unid.", 178, y + 6);
+  doc.setFontSize(9);
+  doc.text("Rubro", 18, y + 5);
+  doc.text("Producto / Insumo Gastado", 75, y + 5);
+  doc.text("Cantidad Utilizada", 150, y + 5);
 
-  y += 12;
-  doc.setFontSize(10);
+  y += 11;
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(40, 40, 40);
 
-  if (inventarioOrdenado.length === 0) {
-    doc.text("No hay inventario registrado.", 15, y);
+  if (consumosFecha.length === 0) {
+    doc.text("No se registraron gastos de insumos en la fecha seleccionada.", 18, y);
+    y += 10;
   } else {
-    inventarioOrdenado.forEach((item) => {
-      if (y > 270) {
-        doc.addPage();
-        y = 20;
-      }
-      doc.setTextColor(44, 44, 44);
-      doc.text(item.rubro, 18, y);
-      doc.text(item.producto, 75, y);
-      doc.text(String(item.stock), 145, y);
-      doc.text(item.unidad || 'Unid', 178, y);
-
-      y += 8;
+    consumosFecha.forEach(c => {
+      if (y > 260) { doc.addPage(); y = 20; }
+      doc.text(c.rubro, 18, y);
+      doc.text(c.producto, 75, y);
+      doc.text(`${c.cantidad} ${c.unidad || 'Unid'}`, 150, y);
+      y += 6;
       doc.setDrawColor(230, 230, 230);
-      doc.line(15, y - 2, 195, y - 2);
+      doc.line(14, y - 2, 196, y - 2);
     });
+    y += 6;
   }
 
-  doc.save(`Reporte_Inventario_Rubros_${new Date().toISOString().split("T")[0]}.pdf`);
+  // SECCIÓN 2: INVENTARIO GENERAL DISPONIBLE
+  if (y > 220) { doc.addPage(); y = 20; }
+
+  doc.setTextColor(139, 30, 63);
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text("2. Estado Actual del Inventario en Almacén (Ordenado Mayor a Menor)", 14, y);
+  y += 6;
+
+  doc.setFillColor(11, 37, 69);
+  doc.rect(14, y, 182, 7, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(9);
+  doc.text("Rubro", 18, y + 5);
+  doc.text("Producto", 75, y + 5);
+  doc.text("Stock Restante", 145, y + 5);
+  doc.text("Estatus", 178, y + 5);
+
+  y += 11;
+  doc.setFont("helvetica", "normal");
+
+  const invOrdenado = [...state.inventario].sort((a, b) => b.stock - a.stock);
+
+  invOrdenado.forEach(item => {
+    if (y > 270) { doc.addPage(); y = 20; }
+
+    const bajo = item.stock <= item.stockMin;
+    doc.setTextColor(bajo ? 180 : 40, 40, 40);
+    doc.text(item.rubro, 18, y);
+    doc.text(item.producto, 75, y);
+    doc.text(`${item.stock} ${item.unidad || 'Unid'}`, 145, y);
+    doc.text(bajo ? "ALERTA BAJO" : "OK", 178, y);
+
+    y += 6;
+    doc.setDrawColor(240, 240, 240);
+    doc.line(14, y - 2, 196, y - 2);
+  });
+
+  doc.save(`Reporte_Interno_Insumos_Inventario_${fechaSel}.pdf`);
 }
 
 // =========================================================================

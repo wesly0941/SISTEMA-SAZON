@@ -521,19 +521,42 @@
           </div>
         </section>
 
-        <!-- SECCIÓN REPORTES PDF TIPO FICHA -->
+        <!-- SECCIÓN REPORTES PDF OPTIMIZADOS -->
         <section id="secPdfReportes" class="content-section hidden">
-          <h2><i class="fas fa-file-pdf"></i> Generación de Reportes Profesionales en PDF (Tipo Ficha)</h2>
+          <h2><i class="fas fa-file-pdf"></i> Generación de Reportes Diarios en PDF</h2>
           <div class="card-grid">
             <div class="card">
-              <h3><i class="fas fa-id-card"></i> Ficha Diaria de Comidas</h3>
-              <p class="description" style="margin-bottom: 15px;">Genera un reporte PDF con la foto grande del plato, descripción detallada, cantidad de platos servidos y el costo del día sin IVA.</p>
-              <button onclick="generarPDFFichaComidas()" class="btn btn-primary btn-block"><i class="fas fa-download"></i> Descargar Ficha PDF</button>
+              <h3><i class="fas fa-id-card"></i> Ficha Diaria de Comidas para Cliente</h3>
+              <p class="description" style="margin-bottom: 15px;">Filtra por cliente, fecha y tipo de comida. Genera fichas ejecutivas compactas con foto real visible, descripción y costo sin IVA.</p>
+              
+              <div class="form-group">
+                <label>Seleccionar Cliente:</label>
+                <select id="pdfSelectCliente"></select>
+              </div>
+              <div class="form-group">
+                <label>Fecha de Servicio:</label>
+                <input type="date" id="pdfFechaComidas" />
+              </div>
+              <div class="form-group">
+                <label>Filtrar por Tipo de Comida (Opcional):</label>
+                <select id="pdfSelectTipoComida">
+                  <option value="">TODAS LAS COMIDAS</option>
+                </select>
+              </div>
+
+              <button onclick="generarPDFFichaComidas()" class="btn btn-primary btn-block"><i class="fas fa-download"></i> Descargar Ficha Cliente (PDF)</button>
             </div>
+
             <div class="card">
-              <h3><i class="fas fa-chart-bar"></i> Gasto e Inventario por Rubro</h3>
-              <p class="description" style="margin-bottom: 15px;">Genera un PDF con el resumen de gastos y lo que queda disponible en el inventario por rubro, ordenado automáticamente de mayor a menor.</p>
-              <button onclick="generarPDFRubrosInventario()" class="btn btn-secondary btn-block"><i class="fas fa-download"></i> Descargar Reporte Rubros PDF</button>
+              <h3><i class="fas fa-clipboard-list"></i> Reporte Diario de Insumos & Inventario</h3>
+              <p class="description" style="margin-bottom: 15px;">Reporte interno para el supervisor. Muestra exactamente qué insumos se gastaron en las preparaciones del día y el stock restante por rubro.</p>
+
+              <div class="form-group">
+                <label>Fecha de Consulta:</label>
+                <input type="date" id="pdfFechaInsumos" />
+              </div>
+
+              <button onclick="generarPDFRubrosInventario()" class="btn btn-secondary btn-block" style="margin-top: 85px;"><i class="fas fa-download"></i> Descargar Reporte Interno (PDF)</button>
             </div>
           </div>
         </section>
