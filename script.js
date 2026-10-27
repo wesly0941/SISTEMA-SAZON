@@ -55,6 +55,7 @@ async function cargarTodoDesdeSupabase() {
     cargarUsuariosBD(),
     cargarClientesBD(),
     cargarInventarioBD(),
+    cargarPreciosPlatosBD(),
     cargarEmpleadosBD(),
     cargarAsistenciasBD(),
     cargarPagosNominaBD(),
@@ -460,6 +461,79 @@ function renderClientesSup() {
   });
 }
 
+// PRECIOS PLATOS (SINCRONIZADOS EN BD)
+async function cargarPreciosPlatosBD() {
+  const { data, error } = await db.from('precios_platos').select('*');
+  if (!error && data && data.length > 0) {
+    state.preciosPlatos = {};
+    data.forEach(p => {
+      state.preciosPlatos[p.nombre] = parseFloat(p.precio);
+    });
+  }
+}
+
+async function crearNuevoPlato(e) {
+  e.preventDefault();
+  const nombre = document.getElementById("nombreNuevoPlato").value.trim();
+  const precio = parseFloat(document.getElementById("precioNuevoPlato").value);
+
+  if (nombre && !isNaN(precio)) {
+    const { error } = await db.from('precios_platos').upsert([{ nombre, precio }], { onConflict: 'nombre' });
+    if (!error) {
+      state.preciosPlatos[nombre] = precio;
+      document.getElementById("formNuevoPlato").reset();
+      alert(`Tipo de plato "${nombre}" guardado.`);
+      await cargarPreciosPlatosBD();
+      renderAll();
+    } else {
+      alert("Error al guardar plato: " + error.message);
+    }
+  }
+}
+
+async function actualizarPrecio(cat) {
+  const input = document.getElementById(`price_${cat}`);
+  if (!input) return;
+  const precio = parseFloat(input.value);
+  if (precio >= 0) {
+    const { error } = await db.from('precios_platos').update({ precio }).eq('nombre', cat);
+    if (!error) {
+      state.preciosPlatos[cat] = precio;
+      alert(`Precio de "${cat}" actualizado.`);
+      renderAll();
+    }
+  }
+}
+
+async function eliminarTipoPlato(cat) {
+  if (confirm(`¿Eliminar ${cat}?`)) {
+    const { error } = await db.from('precios_platos').delete().eq('nombre', cat);
+    if (!error) {
+      delete state.preciosPlatos[cat];
+      await cargarPreciosPlatosBD();
+      renderAll();
+    }
+  }
+}
+
+function renderPreciosPlatos() {
+  const tbody = document.getElementById("tablaPreciosPlatos");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  Object.keys(state.preciosPlatos).forEach(cat => {
+    tbody.innerHTML += `
+      <tr>
+        <td><strong>${cat}</strong></td>
+        <td><input type="number" step="0.1" value="${state.preciosPlatos[cat]}" id="price_${cat}" style="width: 80px;" /></td>
+        <td>
+          <button class="btn btn-sm btn-primary" onclick="actualizarPrecio('${cat}')"><i class="fas fa-sync"></i></button>
+          <button class="btn btn-sm btn-danger" onclick="eliminarTipoPlato('${cat}')"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
 // COCINA E INSUMOS
 async function cargarConsumosBD() {
   const { data, error } = await db.from('consumos_diarios').select('*');
@@ -573,7 +647,7 @@ function populateTiposPlatosDropdown() {
     const valActual = select.value;
     select.innerHTML = `<option value="">Seleccione tipo...</option>`;
     Object.keys(state.preciosPlatos).forEach(tipo => {
-      select.innerHTML += `<option value="${tipo}">${tipo}</option>`;
+      select.innerHTML += `<option value="${tipo}">${tipo} ($${state.preciosPlatos[tipo].toFixed(2)})</option>`;
     });
     select.value = valActual;
   }
@@ -729,9 +803,7 @@ function renderGastosInsumosSup() {
   }
 }
 
-// =========================================================================
-// REPORTE 1: SOLO PARA EL CLIENTE (FICHA DE PLATOS SERVIDOS)
-// =========================================================================
+// REPORTE 1: SOLO PARA EL CLIENTE
 async function generarPDFSoloCliente() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('p', 'mm', 'a4');
@@ -747,7 +819,6 @@ async function generarPDFSoloCliente() {
     return matchFecha && matchCliente && matchTipo;
   });
 
-  // ENCABEZADO INSTITUCIONAL
   doc.setFillColor(139, 30, 63); 
   doc.rect(0, 0, 210, 32, 'F');
   doc.setTextColor(255, 255, 255);
@@ -839,9 +910,7 @@ async function generarPDFSoloCliente() {
   doc.save(nombreArchivo);
 }
 
-// =========================================================================
-// REPORTE 2: CONSOLIDADO INTERNO (FICHAS DE PLATO + INSUMOS GASTADOS)
-// =========================================================================
+// REPORTE 2: CONSOLIDADO INTERNO
 async function generarPDFConsolidadoInterno() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('p', 'mm', 'a4');
@@ -851,7 +920,6 @@ async function generarPDFConsolidadoInterno() {
   const comidasFiltradas = state.registroComidas.filter(c => c.fecha_full === fechaSel);
   const consumosFiltrados = state.consumosDiarios.filter(c => c.fecha === fechaSel);
 
-  // ENCABEZADO INSTITUCIONAL
   doc.setFillColor(11, 37, 69); 
   doc.rect(0, 0, 210, 32, 'F');
   doc.setTextColor(255, 255, 255);
@@ -865,7 +933,6 @@ async function generarPDFConsolidadoInterno() {
 
   let y = 40;
 
-  // PARTE A: FICHAS DE COMIDAS SERVIDAS
   doc.setTextColor(139, 30, 63);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
@@ -937,7 +1004,6 @@ async function generarPDFConsolidadoInterno() {
     y += 16;
   }
 
-  // PARTE B: INSUMOS GASTADOS EN EL DÍA
   if (y > 220) { doc.addPage(); y = 20; }
 
   doc.setTextColor(139, 30, 63);
@@ -1292,55 +1358,6 @@ function irAInventario() {
   if (btnInv) btnInv.click();
 }
 
-function crearNuevoPlato(e) {
-  e.preventDefault();
-  const nombre = document.getElementById("nombreNuevoPlato").value.trim();
-  const precio = parseFloat(document.getElementById("precioNuevoPlato").value);
-
-  if (nombre && !isNaN(precio)) {
-    state.preciosPlatos[nombre] = precio;
-    document.getElementById("formNuevoPlato").reset();
-    alert(`Tipo de plato "${nombre}" creado.`);
-    renderAll();
-  }
-}
-
-function actualizarPrecio(cat) {
-  const input = document.getElementById(`price_${cat}`);
-  if (!input) return;
-  const val = parseFloat(input.value);
-  if (val >= 0) {
-    state.preciosPlatos[cat] = val;
-    alert(`Precio actualizado.`);
-    renderAll();
-  }
-}
-
-function eliminarTipoPlato(cat) {
-  if (confirm(`¿Eliminar ${cat}?`)) {
-    delete state.preciosPlatos[cat];
-    renderAll();
-  }
-}
-
-function renderPreciosPlatos() {
-  const tbody = document.getElementById("tablaPreciosPlatos");
-  if (!tbody) return;
-  tbody.innerHTML = "";
-  Object.keys(state.preciosPlatos).forEach(cat => {
-    tbody.innerHTML += `
-      <tr>
-        <td><strong>${cat}</strong></td>
-        <td><input type="number" step="0.1" value="${state.preciosPlatos[cat]}" id="price_${cat}" style="width: 80px;" /></td>
-        <td>
-          <button class="btn btn-sm btn-primary" onclick="actualizarPrecio('${cat}')"><i class="fas fa-sync"></i></button>
-          <button class="btn btn-sm btn-danger" onclick="eliminarTipoPlato('${cat}')"><i class="fas fa-trash"></i></button>
-        </td>
-      </tr>
-    `;
-  });
-}
-
 function descargarModeloExcel() {
   const data = [
     ["Rubro", "Producto", "Unidad", "Stock Actual", "Stock Minimo"],
@@ -1475,7 +1492,7 @@ function populateTiposPlatosDropdown() {
     const valActual = select.value;
     select.innerHTML = `<option value="">Seleccione tipo...</option>`;
     Object.keys(state.preciosPlatos).forEach(tipo => {
-      select.innerHTML += `<option value="${tipo}">${tipo}</option>`;
+      select.innerHTML += `<option value="${tipo}">${tipo} ($${state.preciosPlatos[tipo].toFixed(2)})</option>`;
     });
     select.value = valActual;
   }
