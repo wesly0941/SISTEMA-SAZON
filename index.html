@@ -9,9 +9,9 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <!-- Librería SheetJS para Excel -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <!-- jsPDF para los Reportes en PDF tipo ficha -->
+  <!-- jsPDF para Reportes en PDF -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <!-- Cliente oficial de Supabase JS -->
+  <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Estilos Personalizados -->
   <link rel="stylesheet" href="styles.css" />
@@ -91,7 +91,7 @@
             <button class="nav-btn" data-target="secInventarioSup"><i class="fas fa-warehouse"></i> Inventario & Excel</button>
             <button class="nav-btn" data-target="secPreciosPlatos"><i class="fas fa-tags"></i> Precios y Tipos Platos</button>
             <button class="nav-btn" data-target="secReportesCocina"><i class="fas fa-receipt"></i> Cobros & Gastos Cocina</button>
-            <button class="nav-btn" data-target="secPdfReportes"><i class="fas fa-file-pdf"></i> Reportes PDF (Fichas)</button>
+            <button class="nav-btn" data-target="secPdfReportes"><i class="fas fa-file-pdf"></i> Reportes PDF</button>
             <button class="nav-btn" data-target="secNominaSup"><i class="fas fa-money-bill-wave"></i> Nómina y Pago Móvil</button>
           </div>
         </nav>
@@ -100,7 +100,7 @@
       <!-- CONTENIDO PRINCIPAL -->
       <main class="main-content">
 
-        <!-- ================= MÓDULOS COCINA ================= -->
+        <!-- MÓDULO COCINA: CARGA DE COMIDAS -->
         <section id="secComidas" class="content-section">
           <h2><i class="fas fa-utensils"></i> Carga Diaria de Comidas Servidas</h2>
           <div class="card-grid">
@@ -153,6 +153,7 @@
           </div>
         </section>
 
+        <!-- MÓDULO COCINA: CONSUMO DE INSUMOS -->
         <section id="secInsumosCocina" class="content-section hidden">
           <h2><i class="fas fa-boxes"></i> Consumo de Insumos Diarios</h2>
           <div class="card">
@@ -167,7 +168,7 @@
               </div>
               <div class="form-group">
                 <label>Cantidad Gastada Hoy</label>
-                <input type="number" id="cantGastoInsumo" step="0.1" min="0.1" placeholder="Ej: 5.0" required />
+                <input type="number" id="cantGastoInsumo" step="0.1" min="0.1" placeholder="Ej: 1.0" required />
               </div>
               <div class="form-group align-end">
                 <button type="submit" class="btn btn-primary"><i class="fas fa-minus-circle"></i> Registrar Gasto</button>
@@ -176,6 +177,7 @@
           </div>
         </section>
 
+        <!-- MÓDULO COCINA: DIARIO -->
         <section id="secDiarioCocina" class="content-section hidden">
           <h2><i class="fas fa-journal-whills"></i> Diario de lo Cocinado y Gastos de Insumos</h2>
           <div class="card">
@@ -208,6 +210,7 @@
           </div>
         </section>
 
+        <!-- MÓDULO COCINA: ASISTENCIA -->
         <section id="secNominaCocina" class="content-section hidden">
           <h2><i class="fas fa-calendar-check"></i> Control Diario de Asistencia</h2>
           <div class="card">
@@ -232,7 +235,7 @@
           </div>
         </section>
 
-        <!-- ================= MÓDULOS SUPERVISOR ================= -->
+        <!-- MÓDULO SUPERVISOR: DASHBOARD -->
         <section id="secDashboardSup" class="content-section hidden">
           <h2><i class="fas fa-chart-line"></i> Resumen General de Operación</h2>
           
@@ -253,11 +256,10 @@
             </div>
           </div>
 
-          <!-- ALERTAS DEBAJO DE LOS PLATOS -->
           <div id="alertasCenterBox" class="center-alerts-panel"></div>
         </section>
 
-        <!-- CONTROL DE USUARIOS -->
+        <!-- MÓDULO SUPERVISOR: USUARIOS -->
         <section id="secUsuariosSup" class="content-section hidden">
           <h2><i class="fas fa-users-cog"></i> Control y Gestión de Usuarios del Sistema</h2>
           <div class="card-grid">
@@ -301,6 +303,7 @@
           </div>
         </section>
 
+        <!-- MÓDULO SUPERVISOR: CLIENTES -->
         <section id="secClientesSup" class="content-section hidden">
           <h2><i class="fas fa-building"></i> Gestión de Clientes Autorizados</h2>
           <div class="card-grid">
@@ -309,7 +312,7 @@
               <form id="formNuevoCliente">
                 <div class="form-group">
                   <label>Nombre / Razón Social del Cliente</label>
-                  <input type="text" id="nombreClienteInput" placeholder="Ej: Corporación Alpha, Banco Central" required />
+                  <input type="text" id="nombreClienteInput" placeholder="Ej: Corporación Alpha" required />
                 </div>
                 <button type="submit" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Guardar Cliente</button>
               </form>
@@ -332,7 +335,7 @@
           </div>
         </section>
 
-        <!-- INVENTARIO CON RUBROS FIJOS Y GUARDADO DE PRODUCTOS EN SUPABASE -->
+        <!-- MÓDULO SUPERVISOR: INVENTARIO -->
         <section id="secInventarioSup" class="content-section hidden">
           <h2><i class="fas fa-warehouse"></i> Control de Inventario y Subdivisión de Rubros</h2>
           
@@ -352,16 +355,16 @@
               <h3>Cargar / Registrar Producto en Rubro</h3>
               <form id="formNuevoInsumoInv">
                 <div class="form-group">
-                  <label>1. Seleccionar Rubro (Fijo / No Modificable)</label>
+                  <label>1. Seleccionar Rubro (Fijo)</label>
                   <select id="regRubroInsumo" required></select>
                 </div>
                 <div class="form-group">
-                  <label>2. Seleccionar Producto Guardado de este Rubro</label>
+                  <label>2. Seleccionar Producto Guardado</label>
                   <select id="regSelectProductoInsumo"></select>
                 </div>
                 <div class="form-group">
-                  <label>O Escribir Producto Nuevo para este Rubro (Se Guardará)</label>
-                  <input type="text" id="regNuevoProductoManual" placeholder="Ej: Carne de Lagarto, Chuleta Ahumada..." />
+                  <label>O Escribir Producto Nuevo</label>
+                  <input type="text" id="regNuevoProductoManual" placeholder="Ej: Harina de Maíz" />
                 </div>
                 <div class="form-group">
                   <label>Unidad de Medida</label>
@@ -376,11 +379,11 @@
                 </div>
                 <div class="form-group">
                   <label>Cantidad en Stock</label>
-                  <input type="number" step="0.1" id="regStockInsumo" placeholder="Ej: 15.5" required />
+                  <input type="number" step="0.1" id="regStockInsumo" placeholder="Ej: 10.0" required />
                 </div>
                 <div class="form-group">
                   <label>Stock Mínimo (Alerta)</label>
-                  <input type="number" step="0.1" id="regMinInsumo" placeholder="Ej: 5.0" required />
+                  <input type="number" step="0.1" id="regMinInsumo" placeholder="Ej: 2.0" required />
                 </div>
                 <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Guardar Producto</button>
               </form>
@@ -389,8 +392,8 @@
             <div class="card">
               <h3>Buscador e Inspección de Productos</h3>
               <div class="form-group">
-                <label><i class="fas fa-search"></i> Buscar por Nombre de Producto o Rubro</label>
-                <input type="text" id="searchInsumoInput" placeholder="Escriba: Bisteck, Papa, Proteínas..." />
+                <label><i class="fas fa-search"></i> Buscar Producto o Rubro</label>
+                <input type="text" id="searchInsumoInput" placeholder="Escriba: Harina, Proteínas..." />
               </div>
               <div class="form-group">
                 <label>Filtrar por Rubro Fijo</label>
@@ -420,7 +423,7 @@
           </div>
         </section>
 
-        <!-- Precios de Platos -->
+        <!-- MÓDULO SUPERVISOR: PRECIOS PLATOS -->
         <section id="secPreciosPlatos" class="content-section hidden">
           <h2><i class="fas fa-tags"></i> Modificar y Crear Precios por Plato (Sin IVA)</h2>
           <div class="card-grid">
@@ -456,7 +459,7 @@
           </div>
         </section>
 
-        <!-- Reporte de Cobros y Gastos de Cocina -->
+        <!-- MÓDULO SUPERVISOR: REPORTES COBROS Y GASTOS -->
         <section id="secReportesCocina" class="content-section hidden">
           <h2><i class="fas fa-receipt"></i> Reportes de Cocina: Cobros y Gastos Diarios</h2>
           
@@ -521,47 +524,37 @@
           </div>
         </section>
 
-        <!-- SECCIÓN REPORTES PDF OPTIMIZADOS -->
+        <!-- MÓDULO SUPERVISOR: REPORTES PDF UNIFICADOS -->
         <section id="secPdfReportes" class="content-section hidden">
           <h2><i class="fas fa-file-pdf"></i> Generación de Reportes Diarios en PDF</h2>
           <div class="card-grid">
-            <div class="card">
-              <h3><i class="fas fa-id-card"></i> Ficha Diaria de Comidas para Cliente</h3>
-              <p class="description" style="margin-bottom: 15px;">Filtra por cliente, fecha y tipo de comida. Genera fichas ejecutivas compactas con foto real visible, descripción y costo sin IVA.</p>
+            <div class="card" style="grid-column: span 2;">
+              <h3><i class="fas fa-id-card"></i> Ficha Diaria de Comidas para Clientes & Consumo Exacto de Insumos</h3>
+              <p class="description" style="margin-bottom: 15px;">Genera un reporte PDF con la fecha exacta impresa, el detalle completo de las comidas servidas a los clientes (con fotos reales y costos sin IVA) y la relación estricta del consumo exacto de los ingredientes gastados en la jornada (ej. si usó 1 kg de 10 disponibles).</p>
               
-              <div class="form-group">
-                <label>Seleccionar Cliente:</label>
-                <select id="pdfSelectCliente"></select>
-              </div>
-              <div class="form-group">
-                <label>Fecha de Servicio:</label>
-                <input type="date" id="pdfFechaComidas" />
-              </div>
-              <div class="form-group">
-                <label>Filtrar por Tipo de Comida (Opcional):</label>
-                <select id="pdfSelectTipoComida">
-                  <option value="">TODAS LAS COMIDAS</option>
-                </select>
-              </div>
-
-              <button onclick="generarPDFFichaComidas()" class="btn btn-primary btn-block"><i class="fas fa-download"></i> Descargar Ficha Cliente (PDF)</button>
-            </div>
-
-            <div class="card">
-              <h3><i class="fas fa-clipboard-list"></i> Reporte Diario de Insumos & Inventario</h3>
-              <p class="description" style="margin-bottom: 15px;">Reporte interno para el supervisor. Muestra exactamente qué insumos se gastaron en las preparaciones del día y el stock restante por rubro.</p>
-
-              <div class="form-group">
-                <label>Fecha de Consulta:</label>
-                <input type="date" id="pdfFechaInsumos" />
+              <div class="grid-form">
+                <div class="form-group">
+                  <label>Seleccionar Cliente:</label>
+                  <select id="pdfSelectCliente"></select>
+                </div>
+                <div class="form-group">
+                  <label>Fecha del Reporte:</label>
+                  <input type="date" id="pdfFechaComidas" />
+                </div>
+                <div class="form-group">
+                  <label>Filtrar por Tipo de Comida (Opcional):</label>
+                  <select id="pdfSelectTipoComida">
+                    <option value="">TODAS LAS COMIDAS</option>
+                  </select>
+                </div>
               </div>
 
-              <button onclick="generarPDFRubrosInventario()" class="btn btn-secondary btn-block" style="margin-top: 85px;"><i class="fas fa-download"></i> Descargar Reporte Interno (PDF)</button>
+              <button onclick="generarPDFUnificadoComidasEInsumos()" class="btn btn-primary btn-block" style="margin-top: 15px;"><i class="fas fa-download"></i> Descargar Reporte Consolidado (PDF)</button>
             </div>
           </div>
         </section>
 
-        <!-- NÓMINA -->
+        <!-- MÓDULO SUPERVISOR: NÓMINA -->
         <section id="secNominaSup" class="content-section hidden">
           <h2><i class="fas fa-money-bill-wave"></i> Liquidación de Nómina y Control de Pagos</h2>
 

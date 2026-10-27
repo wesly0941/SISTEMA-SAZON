@@ -1,12 +1,11 @@
 // =========================================================================
-// CONFIGURACIÓN DE SUPABASE (CONECTADO A TU PROYECTO REAL)
+// CONFIGURACIÓN DE SUPABASE
 // =========================================================================
 const SUPABASE_URL = 'https://smmmynjbxuasfslgdwtk.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_dk4Ca_QZdpaB_WQk7xLr_A_UCFj0YXV';
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// RUBROS FIJOS (CATEGORÍAS PRINCIPALES)
 const RUBROS_FIJOS = [
   "Proteínas",
   "Condimentos y Especias",
@@ -16,7 +15,6 @@ const RUBROS_FIJOS = [
   "Bebidas"
 ];
 
-// ESTADO GLOBAL LOCAL (SINCRONIZADO CON SUPABASE)
 const state = {
   currentUser: null,
   tasaCambio: 36.50,
@@ -39,7 +37,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (document.getElementById("filtroFechaAsistenciaSup")) document.getElementById("filtroFechaAsistenciaSup").value = hoyStr;
   if (document.getElementById("filtroFechaGastosSup")) document.getElementById("filtroFechaGastosSup").value = hoyStr;
   if (document.getElementById("pdfFechaComidas")) document.getElementById("pdfFechaComidas").value = hoyStr;
-  if (document.getElementById("pdfFechaInsumos")) document.getElementById("pdfFechaInsumos").value = hoyStr;
 
   const mesInput = document.getElementById("filtroMesNomina");
   if (mesInput) {
@@ -52,7 +49,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   await cargarTodoDesdeSupabase();
 });
 
-// CARGA INICIAL DE DATOS DESDE SUPABASE
 async function cargarTodoDesdeSupabase() {
   await Promise.all([
     cargarUsuariosBD(),
@@ -68,7 +64,6 @@ async function cargarTodoDesdeSupabase() {
 }
 
 function setupEvents() {
-  // Login dinámico contra Supabase
   if (document.getElementById("loginForm")) {
     document.getElementById("loginForm").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -94,7 +89,6 @@ function setupEvents() {
     });
   }
 
-  // Navegación Sidebar
   document.querySelectorAll(".nav-btn").forEach(btn => {
     btn.addEventListener("click", (e) => {
       document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
@@ -109,7 +103,6 @@ function setupEvents() {
     });
   });
 
-  // Tasa
   if (document.getElementById("btnActualizarTasa")) {
     document.getElementById("btnActualizarTasa").addEventListener("click", () => {
       const val = parseFloat(document.getElementById("tasaCambioInput").value);
@@ -121,7 +114,6 @@ function setupEvents() {
     });
   }
 
-  // Eventos de Formularios
   if (document.getElementById("regRubroInsumo")) document.getElementById("regRubroInsumo").addEventListener("change", actualizarSubProductosInventario);
   if (document.getElementById("formNuevoInsumoInv")) document.getElementById("formNuevoInsumoInv").addEventListener("submit", cargarInsumoASupervisor);
   if (document.getElementById("formNuevoUsuario")) document.getElementById("formNuevoUsuario").addEventListener("submit", crearNuevoUsuarioSistema);
@@ -145,13 +137,11 @@ function setupEvents() {
   if (document.getElementById("filtroQuincenaNomina")) document.getElementById("filtroQuincenaNomina").addEventListener("change", renderNominaSup);
   if (document.getElementById("filtroFechaAsistenciaSup")) document.getElementById("filtroFechaAsistenciaSup").addEventListener("change", renderAsistenciaDiaSup);
 
-  // Excel
   if (document.getElementById("btnDescargarModelo")) document.getElementById("btnDescargarModelo").addEventListener("click", descargarModeloExcel);
   if (document.getElementById("inputExcelInventario")) document.getElementById("inputExcelInventario").addEventListener("change", cargarInventarioExcel);
   if (document.getElementById("btnExportarComidasExcel")) document.getElementById("btnExportarComidasExcel").addEventListener("click", exportarComidasExcel);
   if (document.getElementById("btnExportarNominaExcel")) document.getElementById("btnExportarNominaExcel").addEventListener("click", exportarNominaExcel);
 
-  // Preview Foto y conversión a Base64
   const inputFoto = document.getElementById("fotoPlato");
   if (inputFoto) {
     inputFoto.addEventListener("change", (e) => {
@@ -211,14 +201,10 @@ function renderAll() {
   renderDashboardSup();
 }
 
-// =========================================================================
-// MÓDULO: GESTIÓN DE USUARIOS (SUPABASE)
-// =========================================================================
+// SUPABASE: USUARIOS
 async function cargarUsuariosBD() {
   const { data, error } = await db.from('usuarios').select('*');
-  if (!error && data) {
-    state.usuariosSistema = data;
-  }
+  if (!error && data) state.usuariosSistema = data;
 }
 
 async function crearNuevoUsuarioSistema(e) {
@@ -234,12 +220,12 @@ async function crearNuevoUsuarioSistema(e) {
     await cargarUsuariosBD();
     renderUsuariosSup();
   } else {
-    alert("Error al crear usuario (verifique si el nombre ya existe).");
+    alert("Error al crear usuario.");
   }
 }
 
 async function eliminarUsuarioSistema(id) {
-  if (confirm("¿Desea eliminar este usuario del sistema?")) {
+  if (confirm("¿Desea eliminar este usuario?")) {
     const { error } = await db.from('usuarios').delete().eq('id', id);
     if (!error) {
       await cargarUsuariosBD();
@@ -266,9 +252,7 @@ function renderUsuariosSup() {
   });
 }
 
-// =========================================================================
-// MÓDULO: INVENTARIO & PRODUCTOS (SUPABASE)
-// =========================================================================
+// INVENTARIO
 async function cargarInventarioBD() {
   const { data, error } = await db.from('productos').select('*');
   if (!error && data) {
@@ -343,7 +327,7 @@ async function cargarInsumoASupervisor(e) {
     const nuevoStock = exist.stock + stock;
     const { error } = await db.from('productos').update({ stock: nuevoStock, stock_min: stockMin, unidad }).eq('id', exist.id);
     if (!error) {
-      alert(`Stock actualizado a ${nuevoStock} ${unidad} en la Base de Datos.`);
+      alert(`Stock actualizado a ${nuevoStock} ${unidad}`);
       await cargarInventarioBD();
     }
   } else {
@@ -356,7 +340,7 @@ async function cargarInsumoASupervisor(e) {
     }]);
 
     if (!error) {
-      alert(`Producto "${productoFinal}" guardado en Supabase.`);
+      alert(`Producto "${productoFinal}" guardado.`);
       await cargarInventarioBD();
     }
   }
@@ -366,7 +350,7 @@ async function cargarInsumoASupervisor(e) {
 }
 
 async function eliminarInsumo(id) {
-  if (confirm("¿Eliminar este producto de la Base de Datos?")) {
+  if (confirm("¿Eliminar este producto?")) {
     const { error } = await db.from('productos').delete().eq('id', id);
     if (!error) {
       await cargarInventarioBD();
@@ -405,14 +389,10 @@ function renderInventarioSup() {
   });
 }
 
-// =========================================================================
-// MÓDULO: CLIENTES (SUPABASE)
-// =========================================================================
+// CLIENTES
 async function cargarClientesBD() {
   const { data, error } = await db.from('clientes').select('*');
-  if (!error && data) {
-    state.clientes = data;
-  }
+  if (!error && data) state.clientes = data;
 }
 
 function populateClientesDropdown() {
@@ -479,14 +459,10 @@ function renderClientesSup() {
   });
 }
 
-// =========================================================================
-// MÓDULO: COCINA E INSUMOS (SUPABASE)
-// =========================================================================
+// COCINA E INSUMOS
 async function cargarConsumosBD() {
   const { data, error } = await db.from('consumos_diarios').select('*');
-  if (!error && data) {
-    state.consumosDiarios = data;
-  }
+  if (!error && data) state.consumosDiarios = data;
 }
 
 function populateInsumosDropdownCocina() {
@@ -582,14 +558,10 @@ function renderDiarioCocina() {
   }
 }
 
-// =========================================================================
-// MÓDULO: COMIDAS SERVIDAS (SUPABASE)
-// =========================================================================
+// COMIDAS SERVIDAS
 async function cargarComidasBD() {
   const { data, error } = await db.from('comidas_servidas').select('*');
-  if (!error && data) {
-    state.registroComidas = data;
-  }
+  if (!error && data) state.registroComidas = data;
 }
 
 function populateTiposPlatosDropdown() {
@@ -623,7 +595,7 @@ async function guardarPlatoDia(e) {
 
   let fotoUrl = "https://via.placeholder.com/60?text=Plato"; 
   if (imgElem && imgElem.src) {
-    fotoUrl = imgElem.src; // Captura el Base64 correcto generado por el FileReader
+    fotoUrl = imgElem.src;
   }
 
   const fechaObj = new Date();
@@ -644,7 +616,7 @@ async function guardarPlatoDia(e) {
   if (!error) {
     document.getElementById("formPlatoDia").reset();
     document.getElementById("previewFoto").classList.add("hidden");
-    alert("¡Plato registrado correctamente en la Base de Datos!");
+    alert("¡Plato registrado correctamente!");
     await cargarComidasBD();
     renderAll();
   } else {
@@ -756,10 +728,8 @@ function renderGastosInsumosSup() {
   }
 }
 
-// =========================================================================
-// MÓDULO: GENERACIÓN DE REPORTES PDF MEJORADOS (FICHA CLIENTE & REPORTE INSUMOS)
-// =========================================================================
-async function generarPDFFichaComidas() {
+// REPORTE PDF UNIFICADO (COMIDAS CON FOTO + INSUMOS GASTADOS + FECHA)
+async function generarPDFUnificadoComidasEInsumos() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('p', 'mm', 'a4');
   
@@ -774,32 +744,41 @@ async function generarPDFFichaComidas() {
     return matchFecha && matchCliente && matchTipo;
   });
 
+  const consumosFiltrados = state.consumosDiarios.filter(c => c.fecha === fechaSel);
+
+  // ENCABEZADO INSTITUCIONAL CON FECHA
   doc.setFillColor(139, 30, 63); 
-  doc.rect(0, 0, 210, 30, 'F');
+  doc.rect(0, 0, 210, 32, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("EL SAZÓN DE HELEM C.A.", 14, 14);
+  doc.text("EL SAZÓN DE HELEM C.A.", 14, 13);
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text("FICHA DIARIA DE SERVICIO DE COMIDAS", 14, 22);
-  doc.text(`Fecha: ${fechaSel}`, 160, 14);
-  if (clienteSel) doc.text(`Cliente: ${clienteSel}`, 160, 22);
+  doc.text("REPORTE CONSOLIDADO DIARIO: SERVICIO DE COMIDAS E INSUMOS GASTADOS", 14, 21);
+  doc.text(`Fecha del Reporte: ${fechaSel}`, 14, 27);
+  if (clienteSel) doc.text(`Cliente: ${clienteSel}`, 145, 27);
 
-  let y = 38;
+  let y = 40;
+
+  // SECCIÓN 1: FICHAS DE COMIDAS SERVIDAS
+  doc.setTextColor(139, 30, 63);
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text("1. Relación de Platos Servidos y Fichas por Cliente", 14, y);
+  y += 6;
 
   if (comidasFiltradas.length === 0) {
     doc.setTextColor(40, 40, 40);
-    doc.setFontSize(11);
-    doc.text("No existen registros de comidas para los filtros seleccionados.", 14, y);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("No existen registros de comidas para la fecha seleccionada.", 14, y);
+    y += 12;
   } else {
     let granTotalUSD = 0;
 
     comidasFiltradas.forEach((item, index) => {
-      if (y > 240) {
-        doc.addPage();
-        y = 20;
-      }
+      if (y > 230) { doc.addPage(); y = 20; }
 
       const precioUnit = state.preciosPlatos[item.tipo] || 0;
       const totalNeto = precioUnit * item.cantidad;
@@ -807,120 +786,61 @@ async function generarPDFFichaComidas() {
 
       doc.setDrawColor(212, 175, 55);
       doc.setFillColor(252, 250, 246);
-      doc.roundedRect(14, y, 182, 45, 3, 3, 'FD');
+      doc.roundedRect(14, y, 182, 42, 3, 3, 'FD');
 
       if (item.foto_url && item.foto_url.startsWith("data:image")) {
         try {
-          doc.addImage(item.foto_url, 'JPEG', 18, y + 5, 35, 35);
+          doc.addImage(item.foto_url, 'JPEG', 18, y + 4, 34, 34);
         } catch (e) {
-          doc.rect(18, y + 5, 35, 35);
+          doc.rect(18, y + 4, 34, 34);
           doc.setFontSize(8);
-          doc.text("Sin Foto", 28, y + 23);
+          doc.text("Sin Foto", 26, y + 21);
         }
       } else {
         doc.setDrawColor(200, 200, 200);
-        doc.rect(18, y + 5, 35, 35);
+        doc.rect(18, y + 4, 34, 34);
         doc.setFontSize(8);
         doc.setTextColor(100, 100, 100);
-        doc.text("Foto N/A", 28, y + 23);
+        doc.text("Foto N/A", 26, y + 21);
       }
 
       doc.setTextColor(139, 30, 63);
-      doc.setFontSize(12);
+      doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text(`${index + 1}. ${item.nombre}`, 58, y + 10);
+      doc.text(`${index + 1}. ${item.nombre}`, 56, y + 9);
 
       doc.setTextColor(50, 50, 50);
-      doc.setFontSize(10);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.text(`Cliente: ${item.cliente}`, 58, y + 18);
-      doc.text(`Categoría: ${item.tipo}`, 58, y + 25);
-      doc.text(`Cantidad Servida: ${item.cantidad} Raciones`, 58, y + 32);
+      doc.text(`Cliente: ${item.cliente}`, 56, y + 16);
+      doc.text(`Categoría: ${item.tipo}`, 56, y + 23);
+      doc.text(`Cantidad Servida: ${item.cantidad} Raciones`, 56, y + 30);
 
       doc.setFont("helvetica", "bold");
       doc.setTextColor(139, 30, 63);
-      doc.text(`Precio Unitario: $${precioUnit.toFixed(2)}`, 130, y + 25);
-      doc.text(`Subtotal (Sin IVA): $${totalNeto.toFixed(2)}`, 130, y + 32);
+      doc.text(`Precio Unit.: $${precioUnit.toFixed(2)}`, 130, y + 23);
+      doc.text(`Subtotal (Sin IVA): $${totalNeto.toFixed(2)}`, 130, y + 30);
 
-      y += 50;
+      y += 48;
     });
 
-    if (y > 260) {
-      doc.addPage();
-      y = 20;
-    }
+    if (y > 250) { doc.addPage(); y = 20; }
     doc.setFillColor(212, 175, 55);
-    doc.rect(14, y, 182, 10, 'F');
+    doc.rect(14, y, 182, 9, 'F');
     doc.setTextColor(139, 30, 63);
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text(`TOTAL FACTURADO DEL DÍA (SIN IVA): $${granTotalUSD.toFixed(2)} USD`, 20, y + 7);
+    doc.text(`TOTAL FACTURADO DEL DÍA (SIN IVA): $${granTotalUSD.toFixed(2)} USD`, 18, y + 6);
+    y += 16;
   }
 
-  const nombreArchivo = clienteSel ? `Ficha_${clienteSel.replace(/\s+/g, '_')}_${fechaSel}.pdf` : `Ficha_Comidas_General_${fechaSel}.pdf`;
-  doc.save(nombreArchivo);
-}
-
-async function generarPDFRubrosInventario() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF('p', 'mm', 'a4');
-  const fechaSel = document.getElementById("pdfFechaInsumos").value;
-
-  const consumosFecha = state.consumosDiarios.filter(c => c.fecha === fechaSel);
-
-  doc.setFillColor(11, 37, 69);
-  doc.rect(0, 0, 210, 30, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(15);
-  doc.setFont("helvetica", "bold");
-  doc.text("EL SAZÓN DE HELEM C.A.", 14, 14);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text("REPORTE DIARIO DE GASTOS DE INSUMOS E INVENTARIO POR RUBRO", 14, 22);
-  doc.text(`Fecha: ${fechaSel}`, 160, 14);
-
-  let y = 38;
-
-  doc.setTextColor(139, 30, 63);
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.text("1. Insumos Consumidos en las Preparaciones del Día", 14, y);
-  y += 6;
-
-  doc.setFillColor(212, 175, 55);
-  doc.rect(14, y, 182, 7, 'F');
-  doc.setTextColor(11, 37, 69);
-  doc.setFontSize(9);
-  doc.text("Rubro", 18, y + 5);
-  doc.text("Producto / Insumo Gastado", 75, y + 5);
-  doc.text("Cantidad Utilizada", 150, y + 5);
-
-  y += 11;
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(40, 40, 40);
-
-  if (consumosFecha.length === 0) {
-    doc.text("No se registraron gastos de insumos en la fecha seleccionada.", 18, y);
-    y += 10;
-  } else {
-    consumosFecha.forEach(c => {
-      if (y > 260) { doc.addPage(); y = 20; }
-      doc.text(c.rubro, 18, y);
-      doc.text(c.producto, 75, y);
-      doc.text(`${c.cantidad} ${c.unidad || 'Unid'}`, 150, y);
-      y += 6;
-      doc.setDrawColor(230, 230, 230);
-      doc.line(14, y - 2, 196, y - 2);
-    });
-    y += 6;
-  }
-
+  // SECCIÓN 2: INSUMOS Y PRODUCTOS GASTADOS EN EL DÍA
   if (y > 220) { doc.addPage(); y = 20; }
 
   doc.setTextColor(139, 30, 63);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("2. Estado Actual del Inventario en Almacén (Ordenado Mayor a Menor)", 14, y);
+  doc.text("2. Relación de Insumos y Productos Gastados en el Día", 14, y);
   y += 6;
 
   doc.setFillColor(11, 37, 69);
@@ -928,36 +848,31 @@ async function generarPDFRubrosInventario() {
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(9);
   doc.text("Rubro", 18, y + 5);
-  doc.text("Producto", 75, y + 5);
-  doc.text("Stock Restante", 145, y + 5);
-  doc.text("Estatus", 178, y + 5);
+  doc.text("Producto / Insumo", 75, y + 5);
+  doc.text("Cantidad Exacta Utilizada", 145, y + 5);
 
   y += 11;
   doc.setFont("helvetica", "normal");
+  doc.setTextColor(40, 40, 40);
 
-  const invOrdenado = [...state.inventario].sort((a, b) => b.stock - a.stock);
+  if (consumosFiltrados.length === 0) {
+    doc.text("No se registraron consumos de insumos para esta fecha.", 18, y);
+  } else {
+    consumosFiltrados.forEach(c => {
+      if (y > 270) { doc.addPage(); y = 20; }
+      doc.text(c.rubro, 18, y);
+      doc.text(c.producto, 75, y);
+      doc.text(`${c.cantidad} ${c.unidad || 'Unid'}`, 145, y);
+      y += 6;
+      doc.setDrawColor(230, 230, 230);
+      doc.line(14, y - 2, 196, y - 2);
+    });
+  }
 
-  invOrdenado.forEach(item => {
-    if (y > 270) { doc.addPage(); y = 20; }
-
-    const bajo = item.stock <= item.stockMin;
-    doc.setTextColor(bajo ? 180 : 40, 40, 40);
-    doc.text(item.rubro, 18, y);
-    doc.text(item.producto, 75, y);
-    doc.text(`${item.stock} ${item.unidad || 'Unid'}`, 145, y);
-    doc.text(bajo ? "ALERTA BAJO" : "OK", 178, y);
-
-    y += 6;
-    doc.setDrawColor(240, 240, 240);
-    doc.line(14, y - 2, 196, y - 2);
-  });
-
-  doc.save(`Reporte_Interno_Insumos_Inventario_${fechaSel}.pdf`);
+  doc.save(`Reporte_Consolidado_Sazon_Helem_${fechaSel}.pdf`);
 }
 
-// =========================================================================
-// MÓDULO: NÓMINA, ASISTENCIAS Y PAGOS (SUPABASE)
-// =========================================================================
+// NÓMINA, ASISTENCIA Y PAGOS
 async function cargarEmpleadosBD() {
   const { data, error } = await db.from('empleados').select('*');
   if (!error && data) {
@@ -975,9 +890,7 @@ async function cargarEmpleadosBD() {
 
 async function cargarAsistenciasBD() {
   const { data, error } = await db.from('asistencias').select('*');
-  if (!error && data) {
-    state.asistencias = data;
-  }
+  if (!error && data) state.asistencias = data;
 }
 
 async function cargarPagosNominaBD() {
@@ -1005,14 +918,10 @@ async function guardarEmpleadoSubmit(e) {
   const telefono = document.getElementById("telefonoEmpleado").value.trim();
 
   if (idEdit) {
-    await db.from('empleados').update({
-      cedula, nombre, cargo, sueldo_mensual: sueldoMensual, banco, telefono
-    }).eq('id', parseInt(idEdit));
+    await db.from('empleados').update({ cedula, nombre, cargo, sueldo_mensual: sueldoMensual, banco, telefono }).eq('id', parseInt(idEdit));
     alert("Empleado actualizado.");
   } else {
-    await db.from('empleados').insert([{
-      cedula, nombre, cargo, sueldo_mensual: sueldoMensual, banco, telefono
-    }]);
+    await db.from('empleados').insert([{ cedula, nombre, cargo, sueldo_mensual: sueldoMensual, banco, telefono }]);
     alert("Empleado guardado.");
   }
 
@@ -1031,7 +940,6 @@ function editarEmpleado(id) {
     document.getElementById("sueldoEmpleado").value = emp.sueldoMensual;
     document.getElementById("bancoEmpleado").value = emp.banco || "";
     document.getElementById("telefonoEmpleado").value = emp.telefono || "";
-
     document.getElementById("tituloFormEmpleado").innerText = "Editar Empleado";
     document.getElementById("btnSubmitEmpleado").innerHTML = `<i class="fas fa-sync"></i> Actualizar`;
     document.getElementById("btnCancelEditEmp").classList.remove("hidden");
@@ -1039,7 +947,7 @@ function editarEmpleado(id) {
 }
 
 async function eliminarEmpleado(id) {
-  if (confirm("¿Desea eliminar a este trabajador?")) {
+  if (confirm("¿Eliminar trabajador?")) {
     await db.from('empleados').delete().eq('id', id);
     await cargarEmpleadosBD();
     renderAll();
@@ -1058,7 +966,6 @@ function renderListaTrabajadores() {
   const tbody = document.getElementById("tablaListaTrabajadores");
   if (!tbody) return;
   tbody.innerHTML = "";
-
   state.nomina.forEach(emp => {
     tbody.innerHTML += `
       <tr>
@@ -1134,11 +1041,9 @@ function renderNominaSup() {
 
   state.nomina.forEach(emp => {
     const pagoDia = emp.sueldoMensual / 30;
-
     const asistenciasEmp = state.asistencias.filter(a => {
       if (!a.fecha || a.cedula !== emp.cedula || !a.presente) return false;
       if (!a.fecha.startsWith(mesSel)) return false;
-
       const dia = parseInt(a.fecha.split("-")[2], 10);
       if (quincenaSel === "Q1") return dia >= 1 && dia <= 15;
       if (quincenaSel === "Q2") return dia >= 16 && dia <= 31;
@@ -1152,7 +1057,6 @@ function renderNominaSup() {
 
     const clavePago = `${mesSel}_${quincenaSel}_${emp.cedula}`;
     const estaPagado = state.pagosNomina[clavePago] && state.pagosNomina[clavePago].pagado;
-
     const textoCopiar = `PAGO MOVIL:\nCedula: ${emp.cedula}\nBanco: ${emp.banco || 'N/A'}\nTelefono: ${emp.telefono || 'N/A'}\nMonto: ${montoBsFormatted} Bs. (${diasTrabajados} dias)`;
 
     tbody.innerHTML += `
@@ -1171,7 +1075,7 @@ function renderNominaSup() {
         <td>
           <div style="display:flex; gap:5px;">
             <button class="btn btn-sm ${estaPagado ? 'btn-secondary' : 'btn-success'}" onclick="togglePagoNominaTrabajador('${clavePago}', '${emp.cedula}', '${mesSel}', '${quincenaSel}', ${totalUSD}, ${totalBS})">
-              ${estaPagado ? 'Marcar Pendiente' : 'Marcar PAGADO'}
+              ${estaPagado ? 'Pendiente' : 'PAGADO'}
             </button>
             <button class="btn btn-sm btn-secondary" onclick="copiarPagoMovil('${encodeURIComponent(textoCopiar)}')">
               <i class="fas fa-copy"></i>
@@ -1188,13 +1092,7 @@ async function togglePagoNominaTrabajador(clavePago, cedula, mes, quincena, mont
   const nuevoEstado = actual ? !actual.pagado : true;
 
   const { error } = await db.from('pagos_nomina').upsert([{
-    clave_pago: clavePago,
-    cedula,
-    mes,
-    quincena,
-    monto_usd: montoUSD,
-    monto_bs: montoBS,
-    pagado: nuevoEstado
+    clave_pago: clavePago, cedula, mes, quincena, monto_usd: montoUSD, monto_bs: montoBS, pagado: nuevoEstado
   }], { onConflict: 'clave_pago' });
 
   if (!error) {
@@ -1206,9 +1104,7 @@ async function togglePagoNominaTrabajador(clavePago, cedula, mes, quincena, mont
 function copiarPagoMovil(strEncoded) {
   const texto = decodeURIComponent(strEncoded);
   navigator.clipboard.writeText(texto).then(() => {
-    alert("¡Datos de Pago Móvil copiados al portapapeles!\n\n" + texto);
-  }).catch(() => {
-    alert("Error al copiar automáticamente.");
+    alert("¡Datos copiados al portapapeles!\n\n" + texto);
   });
 }
 
@@ -1231,7 +1127,7 @@ function renderAsistenciaDiaSup() {
         <td>${emp.cargo}</td>
         <td>
           <span style="color: ${asistio ? 'green' : 'red'}; font-weight: bold;">
-            ${asistio ? '✅ Asistió a Laborar' : '❌ Inasistencia / Ausente'}
+            ${asistio ? '✅ Asistió' : '❌ Ausente'}
           </span>
         </td>
         <td>
@@ -1244,7 +1140,6 @@ function renderAsistenciaDiaSup() {
   });
 }
 
-// DASHBOARD
 function renderDashboardSup() {
   const statComidas = document.getElementById("statComidasHoy");
   if (!statComidas) return;
@@ -1273,14 +1168,14 @@ function renderDashboardSup() {
     } else {
       let alertsHTML = `
         <h3><i class="fas fa-exclamation-triangle" style="color: var(--color-danger);"></i> ALERTAS DE INVENTARIO (STOCK BAJO)</h3>
-        <p class="description" style="margin-bottom: 12px;">Atención Supervisor: Los siguientes productos requieren reposición urgente:</p>
+        <p class="description" style="margin-bottom: 12px;">Atención Supervisor:</p>
       `;
 
       bajoStock.forEach(item => {
         alertsHTML += `
           <div class="alert-item">
-            <span><strong>[${item.rubro}] ${item.producto}:</strong> Stock Actual: <strong>${item.stock} ${item.unidad || 'Unid'}</strong> (Mínimo: ${item.stockMin})</span>
-            <button class="btn btn-sm btn-primary" onclick="irAInventario()"><i class="fas fa-arrow-right"></i> Ir a Reponer</button>
+            <span><strong>[${item.rubro}] ${item.producto}:</strong> Stock: <strong>${item.stock} ${item.unidad || 'Unid'}</strong> (Mín: ${item.stockMin})</span>
+            <button class="btn btn-sm btn-primary" onclick="irAInventario()"><i class="fas fa-arrow-right"></i> Reponer</button>
           </div>
         `;
       });
@@ -1313,7 +1208,7 @@ function actualizarPrecio(cat) {
   const val = parseFloat(input.value);
   if (val >= 0) {
     state.preciosPlatos[cat] = val;
-    alert(`Precio de ${cat} actualizado.`);
+    alert(`Precio actualizado.`);
     renderAll();
   }
 }
@@ -1333,9 +1228,7 @@ function renderPreciosPlatos() {
     tbody.innerHTML += `
       <tr>
         <td><strong>${cat}</strong></td>
-        <td>
-          <input type="number" step="0.1" value="${state.preciosPlatos[cat]}" id="price_${cat}" style="width: 80px;" />
-        </td>
+        <td><input type="number" step="0.1" value="${state.preciosPlatos[cat]}" id="price_${cat}" style="width: 80px;" /></td>
         <td>
           <button class="btn btn-sm btn-primary" onclick="actualizarPrecio('${cat}')"><i class="fas fa-sync"></i></button>
           <button class="btn btn-sm btn-danger" onclick="eliminarTipoPlato('${cat}')"><i class="fas fa-trash"></i></button>
@@ -1380,19 +1273,17 @@ async function cargarInventarioExcel(e) {
           const stockMin = parseFloat(row[4]) || 0;
 
           if (RUBROS_FIJOS.includes(rubro)) {
-            await db.from('productos').insert([{
-              rubro, nombre: producto, unidad, stock, stock_min: stockMin
-            }]);
+            await db.from('productos').insert([{ rubro, nombre: producto, unidad, stock, stock_min: stockMin }]);
             cargados++;
           }
         }
       }
-      alert(`Se cargaron ${cargados} productos a Supabase.`);
+      alert(`Se cargaron ${cargados} productos.`);
       document.getElementById("inputExcelInventario").value = "";
       await cargarInventarioBD();
       renderAll();
     } catch (err) {
-      alert("Error leyendo el archivo Excel.");
+      alert("Error leyendo el Excel.");
     }
   };
   reader.readAsArrayBuffer(file);
@@ -1407,36 +1298,24 @@ function exportarComidasExcel() {
   state.registroComidas.forEach(item => {
     if (!filtroCliente || item.cliente === filtroCliente) {
       const precio = state.preciosPlatos[item.tipo] || 0;
-      data.push([
-        item.fecha_full,
-        item.hora,
-        item.cliente,
-        item.tipo,
-        item.nombre,
-        item.cantidad,
-        precio,
-        precio * item.cantidad,
-        item.pagado ? "PAGADO" : "PENDIENTE"
-      ]);
+      data.push([item.fecha_full, item.hora, item.cliente, item.tipo, item.nombre, item.cantidad, precio, precio * item.cantidad, item.pagado ? "PAGADO" : "PENDIENTE"]);
     }
   });
 
   const ws = XLSX.utils.aoa_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Comidas_Cobros");
-  const nombreArch = filtroCliente ? `Cobros_${filtroCliente.replace(/\s+/g, '_')}.xlsx` : "Cobros_Comidas_General.xlsx";
-  XLSX.writeFile(wb, nombreArch);
+  XLSX.writeFile(wb, "Cobros_Comidas.xlsx");
 }
 
 function exportarNominaExcel() {
   const mesSel = document.getElementById("filtroMesNomina").value;
   const quincenaSel = document.getElementById("filtroQuincenaNomina").value;
-
   const data = [
-    ["Reporte de Liquidacion de Nomina - El Sazón de Helem C.A."],
-    [`Mes: ${mesSel}`, `Periodo: ${quincenaSel}`, `Tasa de Cambio: ${state.tasaCambio} Bs/$`],
+    ["Reporte de Nomina - El Sazón de Helem C.A."],
+    [`Mes: ${mesSel}`, `Periodo: ${quincenaSel}`, `Tasa: ${state.tasaCambio} Bs/$`],
     [],
-    ["Cédula", "Empleado", "Cargo", "Banco", "Teléfono", "Sueldo Mensual (\$)", "Días Trabajados", "Total (\$)", "Monto Final (Bs)", "Estatus Pago"]
+    ["Cédula", "Empleado", "Cargo", "Banco", "Teléfono", "Sueldo ($)", "Días", "Total ($)", "Bs", "Estatus"]
   ];
 
   state.nomina.forEach(emp => {
@@ -1449,18 +1328,59 @@ function exportarNominaExcel() {
       if (quincenaSel === "Q2") return dia >= 16 && dia <= 31;
       return true;
     });
-
-    const diasTrabajados = asistenciasEmp.length;
-    const totalUSD = diasTrabajados * pagoDia;
-    const totalBS = totalUSD * state.tasaCambio;
-    const clave = `${mesSel}_${quincenaSel}_${emp.cedula}`;
-    const est = state.pagosNomina[clave] && state.pagosNomina[clave].pagado ? "PAGADO" : "PENDIENTE";
-
-    data.push([emp.cedula, emp.nombre, emp.cargo, emp.banco || 'N/A', emp.telefono || 'N/A', emp.sueldoMensual, diasTrabajados, totalUSD, totalBS, est]);
+    const dias = asistenciasEmp.length;
+    const usd = dias * pagoDia;
+    const bs = usd * state.tasaCambio;
+    const est = state.pagosNomina[`${mesSel}_${quincenaSel}_${emp.cedula}`]?.pagado ? "PAGADO" : "PENDIENTE";
+    data.push([emp.cedula, emp.nombre, emp.cargo, emp.banco, emp.telefono, emp.sueldoMensual, dias, usd, bs, est]);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(data);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Nomina_PagoMovil");
-  XLSX.writeFile(wb, `Nomina_${mesSel}_${quincenaSel}_Sazon_Helem.xlsx`);
+  XLSX.utils.book_append_sheet(wb, ws, "Nomina");
+  XLSX.writeFile(wb, `Nomina_${mesSel}_${quincenaSel}.xlsx`);
+}
+
+function populateClientesDropdown() {
+  const selCocina = document.getElementById("selectClientePlatoCocina");
+  const selReporte = document.getElementById("filtroClienteCobros");
+  const selPdf = document.getElementById("pdfSelectCliente");
+
+  if (selCocina) {
+    selCocina.innerHTML = `<option value="">Seleccione cliente...</option>`;
+    state.clientes.forEach(c => { selCocina.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`; });
+  }
+
+  if (selReporte) {
+    const act = selReporte.value;
+    selReporte.innerHTML = `<option value="">TODOS LOS CLIENTES</option>`;
+    state.clientes.forEach(c => { selReporte.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`; });
+    selReporte.value = act;
+  }
+
+  if (selPdf) {
+    selPdf.innerHTML = `<option value="">TODOS LOS CLIENTES</option>`;
+    state.clientes.forEach(c => { selPdf.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`; });
+  }
+}
+
+function populateTiposPlatosDropdown() {
+  const select = document.getElementById("selectTipoPlato");
+  const selectPdf = document.getElementById("pdfSelectTipoComida");
+
+  if (select) {
+    const valActual = select.value;
+    select.innerHTML = `<option value="">Seleccione tipo...</option>`;
+    Object.keys(state.preciosPlatos).forEach(tipo => {
+      select.innerHTML += `<option value="${tipo}">${tipo}</option>`;
+    });
+    select.value = valActual;
+  }
+
+  if (selectPdf) {
+    selectPdf.innerHTML = `<option value="">TODAS LAS COMIDAS</option>`;
+    Object.keys(state.preciosPlatos).forEach(tipo => {
+      selectPdf.innerHTML += `<option value="${tipo}">${tipo}</option>`;
+    });
+  }
 }
