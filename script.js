@@ -37,6 +37,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (document.getElementById("filtroFechaAsistenciaSup")) document.getElementById("filtroFechaAsistenciaSup").value = hoyStr;
   if (document.getElementById("filtroFechaGastosSup")) document.getElementById("filtroFechaGastosSup").value = hoyStr;
   if (document.getElementById("pdfFechaComidas")) document.getElementById("pdfFechaComidas").value = hoyStr;
+  if (document.getElementById("pdfFechaInsumosInterno")) document.getElementById("pdfFechaInsumosInterno").value = hoyStr;
 
   const mesInput = document.getElementById("filtroMesNomina");
   if (mesInput) {
@@ -728,8 +729,10 @@ function renderGastosInsumosSup() {
   }
 }
 
-// REPORTE PDF UNIFICADO (COMIDAS CON FOTO + INSUMOS GASTADOS + FECHA)
-async function generarPDFUnificadoComidasEInsumos() {
+// =========================================================================
+// REPORTE 1: SOLO PARA EL CLIENTE (FICHA DE PLATOS SERVIDOS)
+// =========================================================================
+async function generarPDFSoloCliente() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('p', 'mm', 'a4');
   
@@ -744,9 +747,7 @@ async function generarPDFUnificadoComidasEInsumos() {
     return matchFecha && matchCliente && matchTipo;
   });
 
-  const consumosFiltrados = state.consumosDiarios.filter(c => c.fecha === fechaSel);
-
-  // ENCABEZADO INSTITUCIONAL CON FECHA
+  // ENCABEZADO INSTITUCIONAL
   doc.setFillColor(139, 30, 63); 
   doc.rect(0, 0, 210, 32, 'F');
   doc.setTextColor(255, 255, 255);
@@ -755,25 +756,23 @@ async function generarPDFUnificadoComidasEInsumos() {
   doc.text("EL SAZÓN DE HELEM C.A.", 14, 13);
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text("REPORTE CONSOLIDADO DIARIO: SERVICIO DE COMIDAS E INSUMOS GASTADOS", 14, 21);
-  doc.text(`Fecha del Reporte: ${fechaSel}`, 14, 27);
+  doc.text("FICHA DIARIA DE SERVICIO DE COMIDAS", 14, 21);
+  doc.text(`Fecha: ${fechaSel}`, 14, 27);
   if (clienteSel) doc.text(`Cliente: ${clienteSel}`, 145, 27);
 
   let y = 40;
 
-  // SECCIÓN 1: FICHAS DE COMIDAS SERVIDAS
   doc.setTextColor(139, 30, 63);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("1. Relación de Platos Servidos y Fichas por Cliente", 14, y);
+  doc.text("Relación de Platos Servidos y Fichas", 14, y);
   y += 6;
 
   if (comidasFiltradas.length === 0) {
     doc.setTextColor(40, 40, 40);
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text("No existen registros de comidas para la fecha seleccionada.", 14, y);
-    y += 12;
+    doc.text("No existen registros de comidas para los filtros seleccionados.", 14, y);
   } else {
     let granTotalUSD = 0;
 
@@ -790,10 +789,13 @@ async function generarPDFUnificadoComidasEInsumos() {
 
       if (item.foto_url && item.foto_url.startsWith("data:image")) {
         try {
-          doc.addImage(item.foto_url, 'JPEG', 18, y + 4, 34, 34);
+          const formatoImg = item.foto_url.includes("image/png") ? "PNG" : "JPEG";
+          doc.addImage(item.foto_url, formatoImg, 18, y + 4, 34, 34);
         } catch (e) {
+          doc.setDrawColor(200, 200, 200);
           doc.rect(18, y + 4, 34, 34);
           doc.setFontSize(8);
+          doc.setTextColor(100, 100, 100);
           doc.text("Sin Foto", 26, y + 21);
         }
       } else {
@@ -830,17 +832,118 @@ async function generarPDFUnificadoComidasEInsumos() {
     doc.setTextColor(139, 30, 63);
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
+    doc.text(`TOTAL FACTURADO (SIN IVA): $${granTotalUSD.toFixed(2)} USD`, 18, y + 6);
+  }
+
+  const nombreArchivo = clienteSel ? `Ficha_Cliente_${clienteSel.replace(/\s+/g, '_')}_${fechaSel}.pdf` : `Ficha_Comidas_${fechaSel}.pdf`;
+  doc.save(nombreArchivo);
+}
+
+// =========================================================================
+// REPORTE 2: CONSOLIDADO INTERNO (FICHAS DE PLATO + INSUMOS GASTADOS)
+// =========================================================================
+async function generarPDFConsolidadoInterno() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('p', 'mm', 'a4');
+  
+  const fechaSel = document.getElementById("pdfFechaInsumosInterno") ? document.getElementById("pdfFechaInsumosInterno").value : new Date().toISOString().split("T")[0];
+
+  const comidasFiltradas = state.registroComidas.filter(c => c.fecha_full === fechaSel);
+  const consumosFiltrados = state.consumosDiarios.filter(c => c.fecha === fechaSel);
+
+  // ENCABEZADO INSTITUCIONAL
+  doc.setFillColor(11, 37, 69); 
+  doc.rect(0, 0, 210, 32, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text("EL SAZÓN DE HELEM C.A.", 14, 13);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text("REPORTE INTERNO CONSOLIDADO: SERVICIO E INSUMOS GASTADOS", 14, 21);
+  doc.text(`Fecha del Reporte: ${fechaSel}`, 14, 27);
+
+  let y = 40;
+
+  // PARTE A: FICHAS DE COMIDAS SERVIDAS
+  doc.setTextColor(139, 30, 63);
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text("1. Relación de Platos Servidos a Clientes", 14, y);
+  y += 6;
+
+  if (comidasFiltradas.length === 0) {
+    doc.setTextColor(40, 40, 40);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("No existen registros de comidas para esta fecha.", 14, y);
+    y += 12;
+  } else {
+    let granTotalUSD = 0;
+
+    comidasFiltradas.forEach((item, index) => {
+      if (y > 230) { doc.addPage(); y = 20; }
+
+      const precioUnit = state.preciosPlatos[item.tipo] || 0;
+      const totalNeto = precioUnit * item.cantidad;
+      granTotalUSD += totalNeto;
+
+      doc.setDrawColor(212, 175, 55);
+      doc.setFillColor(252, 250, 246);
+      doc.roundedRect(14, y, 182, 42, 3, 3, 'FD');
+
+      if (item.foto_url && item.foto_url.startsWith("data:image")) {
+        try {
+          const formatoImg = item.foto_url.includes("image/png") ? "PNG" : "JPEG";
+          doc.addImage(item.foto_url, formatoImg, 18, y + 4, 34, 34);
+        } catch (e) {
+          doc.rect(18, y + 4, 34, 34);
+          doc.setFontSize(8);
+          doc.text("Sin Foto", 26, y + 21);
+        }
+      } else {
+        doc.rect(18, y + 4, 34, 34);
+        doc.setFontSize(8);
+        doc.text("Foto N/A", 26, y + 21);
+      }
+
+      doc.setTextColor(139, 30, 63);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${index + 1}. ${item.nombre}`, 56, y + 9);
+
+      doc.setTextColor(50, 50, 50);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Cliente: ${item.cliente}`, 56, y + 16);
+      doc.text(`Categoría: ${item.tipo}`, 56, y + 23);
+      doc.text(`Cantidad Servida: ${item.cantidad} Raciones`, 56, y + 30);
+
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(139, 30, 63);
+      doc.text(`Precio Unit.: $${precioUnit.toFixed(2)}`, 130, y + 23);
+      doc.text(`Subtotal (Sin IVA): $${totalNeto.toFixed(2)}`, 130, y + 30);
+
+      y += 48;
+    });
+
+    if (y > 250) { doc.addPage(); y = 20; }
+    doc.setFillColor(212, 175, 55);
+    doc.rect(14, y, 182, 9, 'F');
+    doc.setTextColor(139, 30, 63);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
     doc.text(`TOTAL FACTURADO DEL DÍA (SIN IVA): $${granTotalUSD.toFixed(2)} USD`, 18, y + 6);
     y += 16;
   }
 
-  // SECCIÓN 2: INSUMOS Y PRODUCTOS GASTADOS EN EL DÍA
+  // PARTE B: INSUMOS GASTADOS EN EL DÍA
   if (y > 220) { doc.addPage(); y = 20; }
 
   doc.setTextColor(139, 30, 63);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("2. Relación de Insumos y Productos Gastados en el Día", 14, y);
+  doc.text("2. Relación de Insumos y Productos Gastados en la Preparación", 14, y);
   y += 6;
 
   doc.setFillColor(11, 37, 69);
@@ -869,7 +972,7 @@ async function generarPDFUnificadoComidasEInsumos() {
     });
   }
 
-  doc.save(`Reporte_Consolidado_Sazon_Helem_${fechaSel}.pdf`);
+  doc.save(`Reporte_Consolidado_Interno_${fechaSel}.pdf`);
 }
 
 // NÓMINA, ASISTENCIA Y PAGOS

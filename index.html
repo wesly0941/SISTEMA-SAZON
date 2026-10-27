@@ -524,33 +524,47 @@
           </div>
         </section>
 
-        <!-- MÓDULO SUPERVISOR: REPORTES PDF UNIFICADOS -->
+        <!-- MÓDULO SUPERVISOR: REPORTES PDF (DOS REPORTES INDEPENDIENTES) -->
         <section id="secPdfReportes" class="content-section hidden">
           <h2><i class="fas fa-file-pdf"></i> Generación de Reportes Diarios en PDF</h2>
           <div class="card-grid">
-            <div class="card" style="grid-column: span 2;">
-              <h3><i class="fas fa-id-card"></i> Ficha Diaria de Comidas para Clientes & Consumo Exacto de Insumos</h3>
-              <p class="description" style="margin-bottom: 15px;">Genera un reporte PDF con la fecha exacta impresa, el detalle completo de las comidas servidas a los clientes (con fotos reales y costos sin IVA) y la relación estricta del consumo exacto de los ingredientes gastados en la jornada (ej. si usó 1 kg de 10 disponibles).</p>
+            
+            <!-- REPORTE 1: SOLO PARA EL CLIENTE -->
+            <div class="card">
+              <h3><i class="fas fa-id-card"></i> 1. Ficha Diaria para el Cliente</h3>
+              <p class="description" style="margin-bottom: 15px;">Reporte exclusivo para enviar al cliente. Contiene <strong>únicamente</strong> la relación de platos servidos del día con sus fotos reales, descripción y costos sin IVA.</p>
               
-              <div class="grid-form">
-                <div class="form-group">
-                  <label>Seleccionar Cliente:</label>
-                  <select id="pdfSelectCliente"></select>
-                </div>
-                <div class="form-group">
-                  <label>Fecha del Reporte:</label>
-                  <input type="date" id="pdfFechaComidas" />
-                </div>
-                <div class="form-group">
-                  <label>Filtrar por Tipo de Comida (Opcional):</label>
-                  <select id="pdfSelectTipoComida">
-                    <option value="">TODAS LAS COMIDAS</option>
-                  </select>
-                </div>
+              <div class="form-group">
+                <label>Seleccionar Cliente:</label>
+                <select id="pdfSelectCliente"></select>
+              </div>
+              <div class="form-group">
+                <label>Fecha de Servicio:</label>
+                <input type="date" id="pdfFechaComidas" />
+              </div>
+              <div class="form-group">
+                <label>Filtrar por Tipo de Comida (Opcional):</label>
+                <select id="pdfSelectTipoComida">
+                  <option value="">TODAS LAS COMIDAS</option>
+                </select>
               </div>
 
-              <button onclick="generarPDFUnificadoComidasEInsumos()" class="btn btn-primary btn-block" style="margin-top: 15px;"><i class="fas fa-download"></i> Descargar Reporte Consolidado (PDF)</button>
+              <button onclick="generarPDFSoloCliente()" class="btn btn-primary btn-block" style="margin-top: 15px;"><i class="fas fa-download"></i> Descargar Ficha para Cliente (PDF)</button>
             </div>
+
+            <!-- REPORTE 2: CONSOLIDADO INTERNO (AMBAS COSAS) -->
+            <div class="card">
+              <h3><i class="fas fa-clipboard-list"></i> 2. Reporte Interno Consolidado</h3>
+              <p class="description" style="margin-bottom: 15px;">Reporte completo para control interno. Contiene <strong>ambas secciones</strong>: la ficha de platos servidos a los clientes <strong>más</strong> la relación exacta de los insumos y productos gastados en el día.</p>
+              
+              <div class="form-group">
+                <label>Fecha del Reporte Interno:</label>
+                <input type="date" id="pdfFechaInsumosInterno" />
+              </div>
+
+              <button onclick="generarPDFConsolidadoInterno()" class="btn btn-secondary btn-block" style="margin-top: 85px;"><i class="fas fa-download"></i> Descargar Reporte Interno (PDF)</button>
+            </div>
+
           </div>
         </section>
 
