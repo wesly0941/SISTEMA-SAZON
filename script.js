@@ -27,7 +27,8 @@ const state = {
   consumosDiarios: [],
   nomina: [],
   asistencias: [],
-  pagosNomina: {}
+  pagosNomina: {},
+  usuariosSistema: []
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -52,6 +53,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 // CARGA INICIAL DE DATOS DESDE SUPABASE
 async function cargarTodoDesdeSupabase() {
   await Promise.all([
+    cargarUsuariosBD(),
     cargarClientesBD(),
     cargarInventarioBD(),
     cargarEmpleadosBD(),
@@ -64,19 +66,20 @@ async function cargarTodoDesdeSupabase() {
 }
 
 function setupEvents() {
-  // Login
+  // Login dinámico contra Supabase
   if (document.getElementById("loginForm")) {
-    document.getElementById("loginForm").addEventListener("submit", (e) => {
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const user = document.getElementById("usernameInput").value.trim().toLowerCase();
+      const user = document.getElementById("usernameInput").value.trim();
       const pass = document.getElementById("passwordInput").value.trim();
 
-      if (user === "cocina" && pass === "1234") {
-        login("Jefa de Cocina", "cocina");
-      } else if (user === "supervisor" && pass === "1234") {
-        login("Supervisor General", "supervisor");
+      const usuarioEncontrado = state.usuariosSistema.find(u => u.usuario === user && u.password === pass);
+
+      if (usuarioEncontrado) {
+        const nombreRol = usuarioEncontrado.rol === 'supervisor' ? 'Supervisor General' : 'Jefa de Cocina';
+        login(nombreRol, usuarioEncontrado.rol);
       } else {
-        alert("Credenciales incorrectas. Use cocina/1234 o supervisor/1234");
+        alert("Usuario o contraseña incorrectos.");
       }
     });
   }
@@ -119,6 +122,7 @@ function setupEvents() {
   // Eventos de Formularios
   if (document.getElementById("regRubroInsumo")) document.getElementById("regRubroInsumo").addEventListener("change", actualizarSubProductosInventario);
   if (document.getElementById("formNuevoInsumoInv")) document.getElementById("formNuevoInsumoInv").addEventListener("submit", cargarInsumoASupervisor);
+  if (document.getElementById("formNuevoUsuario")) document.getElementById("formNuevoUsuario").addEventListener("submit", crearNuevoUsuarioSistema);
   
   if (document.getElementById("formPlatoDia")) document.getElementById("formPlatoDia").addEventListener("submit", guardarPlatoDia);
   if (document.getElementById("formGastoInsumo")) document.getElementById("formGastoInsumo").addEventListener("submit", descontarInsumo);
@@ -194,6 +198,7 @@ function renderAll() {
   renderNominaCocina();
   renderDiarioCocina();
   renderClientesSup();
+  renderUsuariosSup();
   renderInventarioSup();
   renderPreciosPlatos();
   renderReportesCocina();
@@ -202,6 +207,61 @@ function renderAll() {
   renderNominaSup();
   renderAsistenciaDiaSup();
   renderDashboardSup();
+}
+
+// =========================================================================
+// MÓDULO: GESTIÓN DE USUARIOS (SUPABASE)
+// =========================================================================
+async function cargarUsuariosBD() {
+  const { data, error } = await db.from('usuarios').select('*');
+  if (!error && data) {
+    state.usuariosSistema = data;
+  }
+}
+
+async function crearNuevoUsuarioSistema(e) {
+  e.preventDefault();
+  const usuario = document.getElementById("nuevoUserNombre").value.trim();
+  const password = document.getElementById("nuevoUserPass").value.trim();
+  const rol = document.getElementById("nuevoUserRol").value;
+
+  const { error } = await db.from('usuarios').insert([{ usuario, password, rol }]);
+  if (!error) {
+    alert("Usuario creado exitosamente.");
+    document.getElementById("formNuevoUsuario").reset();
+    await cargarUsuariosBD();
+    renderUsuariosSup();
+  } else {
+    alert("Error al crear usuario (verifique si el nombre ya existe).");
+  }
+}
+
+async function eliminarUsuarioSistema(id) {
+  if (confirm("¿Desea eliminar este usuario del sistema?")) {
+    const { error } = await db.from('usuarios').delete().eq('id', id);
+    if (!error) {
+      await cargarUsuariosBD();
+      renderUsuariosSup();
+    }
+  }
+}
+
+function renderUsuariosSup() {
+  const tbody = document.getElementById("tablaUsuariosSup");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  state.usuariosSistema.forEach(u => {
+    tbody.innerHTML += `
+      <tr>
+        <td>#${u.id}</td>
+        <td><strong>${u.usuario}</strong></td>
+        <td><span class="badge">${u.rol.toUpperCase()}</span></td>
+        <td>
+          <button class="btn btn-sm btn-danger" onclick="eliminarUsuarioSistema(${u.id})"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>
+    `;
+  });
 }
 
 // =========================================================================
@@ -674,6 +734,118 @@ function renderGastosInsumosSup() {
       `;
     });
   }
+}
+
+// =========================================================================
+// MÓDULO: GENERACIÓN DE REPORTES PDF PROFESIONALES (TIPO FICHA)
+// =========================================================================
+async function generarPDFFichaComidas() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const hoyStr = new Date().toISOString().split("T")[0];
+  const comidasHoy = state.registroComidas.filter(c => c.fecha_full === hoyStr);
+
+  // Encabezado institucional
+  doc.setFillColor(139, 30, 63); // Guinda Sazón de Helem
+  doc.rect(0, 0, 210, 35, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.text("EL SAZÓN DE HELEM C.A.", 15, 15);
+  doc.setFontSize(10);
+  doc.text("FICHA DIARIA DE COMIDAS SERVIDAS Y COSTOS SIN IVA", 15, 24);
+  doc.text(`Fecha: ${hoyStr}`, 160, 24);
+
+  let y = 45;
+  if (comidasHoy.length === 0) {
+    doc.setTextColor(40, 40, 40);
+    doc.setFontSize(12);
+    doc.text("No hay platos registrados en el día de hoy.", 15, y);
+  } else {
+    comidasHoy.forEach((item, index) => {
+      if (y > 250) {
+        doc.addPage();
+        y = 20;
+      }
+
+      const precioUnit = state.preciosPlatos[item.tipo] || 0;
+      const costoTotalSinIVA = (precioUnit * item.cantidad).toFixed(2);
+
+      // Recuadro tipo ficha
+      doc.setDrawColor(212, 175, 55);
+      doc.setFillColor(250, 248, 245);
+      doc.roundedRect(15, y, 180, 38, 3, 3, 'FD');
+
+      doc.setTextColor(139, 30, 63);
+      doc.setFontSize(12);
+      doc.text(`Ficha #${index + 1} - Categoría: ${item.tipo.toUpperCase()}`, 20, y + 8);
+
+      doc.setTextColor(44, 44, 44);
+      doc.setFontSize(10);
+      doc.text(`Descripción del Plato: ${item.nombre}`, 20, y + 16);
+      doc.text(`Cliente Autorizado: ${item.cliente}`, 20, y + 23);
+      doc.text(`Cantidad de Platos (Raciones): ${item.cantidad}`, 20, y + 30);
+      doc.text(`Costo Total (Sin IVA): $${costoTotalSinIVA}`, 130, y + 30);
+
+      y += 46;
+    });
+  }
+
+  doc.save(`Ficha_Comidas_${hoyStr}.pdf`);
+}
+
+async function generarPDFRubrosInventario() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  // Ordenar inventario de mayor a menor según el stock actual
+  const inventarioOrdenado = [...state.inventario].sort((a, b) => b.stock - a.stock);
+
+  // Encabezado institucional
+  doc.setFillColor(11, 37, 69);
+  doc.rect(0, 0, 210, 35, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.text("EL SAZÓN DE HELEM C.A.", 15, 15);
+  doc.setFontSize(10);
+  doc.text("REPORTE DE INVENTARIO Y GASTOS POR RUBRO (MAYOR A MENOR)", 15, 24);
+
+  let y = 45;
+  doc.setTextColor(44, 44, 44);
+  doc.setFontSize(11);
+
+  // Cabecera de la tabla PDF
+  doc.setFillColor(212, 175, 55);
+  doc.rect(15, y, 180, 8, 'F');
+  doc.setTextColor(11, 37, 69);
+  doc.text("Rubro", 18, y + 6);
+  doc.text("Producto / Insumo", 75, y + 6);
+  doc.text("Stock Restante", 145, y + 6);
+  doc.text("Unid.", 178, y + 6);
+
+  y += 12;
+  doc.setFontSize(10);
+
+  if (inventarioOrdenado.length === 0) {
+    doc.text("No hay inventario registrado.", 15, y);
+  } else {
+    inventarioOrdenado.forEach((item) => {
+      if (y > 270) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setTextColor(44, 44, 44);
+      doc.text(item.rubro, 18, y);
+      doc.text(item.producto, 75, y);
+      doc.text(String(item.stock), 145, y);
+      doc.text(item.unidad || 'Unid', 178, y);
+
+      y += 8;
+      doc.setDrawColor(230, 230, 230);
+      doc.line(15, y - 2, 195, y - 2);
+    });
+  }
+
+  doc.save(`Reporte_Inventario_Rubros_${new Date().toISOString().split("T")[0]}.pdf`);
 }
 
 // =========================================================================
