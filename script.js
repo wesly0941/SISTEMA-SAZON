@@ -2,7 +2,7 @@
 // CONFIGURACIÓN DE SUPABASE (CONECTADO A TU PROYECTO REAL)
 // =========================================================================
 const SUPABASE_URL = 'https://smmmynjbxuasfslgdwtk.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtbW15bmpieHVhc2ZzbGdkd3RrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyMDQyMDksImV4cCI6MjEwNzc4MDIwOX0.QtDlgN0BRP-FCZcvjY2ixMXknQJCdq_tnjMZjXktnkA';
+const SUPABASE_ANON_KEY = 'sb_publishable_dk4Ca_QZdpaB_WQk7xLr_A_UCFj0YXV';
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
