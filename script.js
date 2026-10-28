@@ -461,7 +461,7 @@ function renderClientesSup() {
   });
 }
 
-// PRECIOS PLATOS (SINCRONIZADOS EN BD)
+// PRECIOS PLATOS
 async function cargarPreciosPlatosBD() {
   const { data, error } = await db.from('precios_platos').select('*');
   if (!error && data && data.length > 0) {
@@ -592,9 +592,12 @@ function renderDiarioCocina() {
   const fechaInput = document.getElementById("filtroFechaDiario");
   const containerPlatos = document.getElementById("diarioPlatosContainer");
   const tbodyInsumos = document.getElementById("tablaDiarioInsumos");
+  const labelFechaVisual = document.getElementById("labelFechaReporteVisual");
 
   if (!fechaInput || !containerPlatos || !tbodyInsumos) return;
   const fechaSel = fechaInput.value;
+
+  if (labelFechaVisual) labelFechaVisual.innerText = `Fecha del Reporte: ${fechaSel}`;
 
   containerPlatos.innerHTML = "";
   const platosFecha = state.registroComidas.filter(c => c.fecha_full === fechaSel);
@@ -633,6 +636,21 @@ function renderDiarioCocina() {
   }
 }
 
+// DESCARGAR REPORTE VISUAL EN IMAGEN PARA COCINA
+function descargarReporteImagenCocina() {
+  const cardVisual = document.getElementById("reporteCocinaVisualCard");
+  if (!cardVisual) return;
+
+  html2canvas(cardVisual, { scale: 2, useCORS: true }).then(canvas => {
+    const enlace = document.createElement("a");
+    enlace.download = `Reporte_Cocina_${document.getElementById("filtroFechaDiario").value}.png`;
+    enlace.href = canvas.toDataURL("image/png");
+    enlace.click();
+  }).catch(err => {
+    alert("Error al generar la imagen del reporte.");
+  });
+}
+
 // COMIDAS SERVIDAS
 async function cargarComidasBD() {
   const { data, error } = await db.from('comidas_servidas').select('*');
@@ -645,9 +663,10 @@ function populateTiposPlatosDropdown() {
 
   if (select) {
     const valActual = select.value;
+    // SIN PRECIOS PARA EL ROL DE COCINA
     select.innerHTML = `<option value="">Seleccione tipo...</option>`;
     Object.keys(state.preciosPlatos).forEach(tipo => {
-      select.innerHTML += `<option value="${tipo}">${tipo} ($${state.preciosPlatos[tipo].toFixed(2)})</option>`;
+      select.innerHTML += `<option value="${tipo}">${tipo}</option>`;
     });
     select.value = valActual;
   }
@@ -803,7 +822,7 @@ function renderGastosInsumosSup() {
   }
 }
 
-// REPORTE 1: SOLO PARA EL CLIENTE
+// REPORTE 1: SOLO PARA EL CLIENTE (CON TEXTO MULTILÍNEA / WRAPPING AUTOMÁTICO)
 async function generarPDFSoloCliente() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('p', 'mm', 'a4');
@@ -831,13 +850,13 @@ async function generarPDFSoloCliente() {
   doc.text(`Fecha: ${fechaSel}`, 14, 27);
   if (clienteSel) doc.text(`Cliente: ${clienteSel}`, 145, 27);
 
-  let y = 40;
+  let y = 42;
 
   doc.setTextColor(139, 30, 63);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.text("Relación de Platos Servidos y Fichas", 14, y);
-  y += 6;
+  y += 8;
 
   if (comidasFiltradas.length === 0) {
     doc.setTextColor(40, 40, 40);
@@ -848,69 +867,77 @@ async function generarPDFSoloCliente() {
     let granTotalUSD = 0;
 
     comidasFiltradas.forEach((item, index) => {
-      if (y > 230) { doc.addPage(); y = 20; }
-
       const precioUnit = state.preciosPlatos[item.tipo] || 0;
       const totalNeto = precioUnit * item.cantidad;
       granTotalUSD += totalNeto;
 
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      const lineasNombre = doc.splitTextToSize(`${index + 1}. ${item.nombre}`, 105);
+      const alturaTexto = lineasNombre.length * 6;
+      const alturaCaja = Math.max(42, alturaTexto + 28);
+
+      if (y + alturaCaja > 275) { doc.addPage(); y = 20; }
+
       doc.setDrawColor(212, 175, 55);
       doc.setFillColor(252, 250, 246);
-      doc.roundedRect(14, y, 182, 42, 3, 3, 'FD');
+      doc.roundedRect(14, y, 182, alturaCaja, 3, 3, 'FD');
 
       if (item.foto_url && item.foto_url.startsWith("data:image")) {
         try {
           const formatoImg = item.foto_url.includes("image/png") ? "PNG" : "JPEG";
-          doc.addImage(item.foto_url, formatoImg, 18, y + 4, 34, 34);
+          doc.addImage(item.foto_url, formatoImg, 18, y + 4, 32, 32);
         } catch (e) {
           doc.setDrawColor(200, 200, 200);
-          doc.rect(18, y + 4, 34, 34);
+          doc.rect(18, y + 4, 32, 32);
           doc.setFontSize(8);
           doc.setTextColor(100, 100, 100);
-          doc.text("Sin Foto", 26, y + 21);
+          doc.text("Sin Foto", 25, y + 21);
         }
       } else {
         doc.setDrawColor(200, 200, 200);
-        doc.rect(18, y + 4, 34, 34);
+        doc.rect(18, y + 4, 32, 32);
         doc.setFontSize(8);
         doc.setTextColor(100, 100, 100);
-        doc.text("Foto N/A", 26, y + 21);
+        doc.text("Foto N/A", 25, y + 21);
       }
 
       doc.setTextColor(139, 30, 63);
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text(`${index + 1}. ${item.nombre}`, 56, y + 9);
+      doc.text(lineasNombre, 55, y + 8);
+
+      let cursorY = y + 8 + alturaTexto;
 
       doc.setTextColor(50, 50, 50);
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.text(`Cliente: ${item.cliente}`, 56, y + 16);
-      doc.text(`Categoría: ${item.tipo}`, 56, y + 23);
-      doc.text(`Cantidad Servida: ${item.cantidad} Raciones`, 56, y + 30);
+      doc.text(`Cliente: ${item.cliente} | Categoría: ${item.tipo}`, 55, cursorY);
+      cursorY += 5;
+      doc.text(`Cantidad Servida: ${item.cantidad} Raciones`, 55, cursorY);
 
       doc.setFont("helvetica", "bold");
       doc.setTextColor(139, 30, 63);
-      doc.text(`Precio Unit.: $${precioUnit.toFixed(2)}`, 130, y + 23);
-      doc.text(`Subtotal (Sin IVA): $${totalNeto.toFixed(2)}`, 130, y + 30);
+      doc.text(`Precio Unit.: $${precioUnit.toFixed(2)}`, 135, cursorY - 5);
+      doc.text(`Subtotal: $${totalNeto.toFixed(2)}`, 135, cursorY);
 
-      y += 48;
+      y += alturaCaja + 6;
     });
 
-    if (y > 250) { doc.addPage(); y = 20; }
+    if (y > 260) { doc.addPage(); y = 20; }
     doc.setFillColor(212, 175, 55);
-    doc.rect(14, y, 182, 9, 'F');
+    doc.rect(14, y, 182, 10, 'F');
     doc.setTextColor(139, 30, 63);
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text(`TOTAL FACTURADO (SIN IVA): $${granTotalUSD.toFixed(2)} USD`, 18, y + 6);
+    doc.text(`TOTAL FACTURADO (SIN IVA): $${granTotalUSD.toFixed(2)} USD`, 18, y + 7);
   }
 
   const nombreArchivo = clienteSel ? `Ficha_Cliente_${clienteSel.replace(/\s+/g, '_')}_${fechaSel}.pdf` : `Ficha_Comidas_${fechaSel}.pdf`;
   doc.save(nombreArchivo);
 }
 
-// REPORTE 2: CONSOLIDADO INTERNO
+// REPORTE 2: CONSOLIDADO INTERNO (CON TEXTO MULTILÍNEA / WRAPPING AUTOMÁTICO)
 async function generarPDFConsolidadoInterno() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('p', 'mm', 'a4');
@@ -931,13 +958,13 @@ async function generarPDFConsolidadoInterno() {
   doc.text("REPORTE INTERNO CONSOLIDADO: SERVICIO E INSUMOS GASTADOS", 14, 21);
   doc.text(`Fecha del Reporte: ${fechaSel}`, 14, 27);
 
-  let y = 40;
+  let y = 42;
 
   doc.setTextColor(139, 30, 63);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.text("1. Relación de Platos Servidos a Clientes", 14, y);
-  y += 6;
+  y += 8;
 
   if (comidasFiltradas.length === 0) {
     doc.setTextColor(40, 40, 40);
@@ -949,68 +976,76 @@ async function generarPDFConsolidadoInterno() {
     let granTotalUSD = 0;
 
     comidasFiltradas.forEach((item, index) => {
-      if (y > 230) { doc.addPage(); y = 20; }
-
       const precioUnit = state.preciosPlatos[item.tipo] || 0;
       const totalNeto = precioUnit * item.cantidad;
       granTotalUSD += totalNeto;
 
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      const lineasNombre = doc.splitTextToSize(`${index + 1}. ${item.nombre}`, 105);
+      const alturaTexto = lineasNombre.length * 6;
+      const alturaCaja = Math.max(42, alturaTexto + 28);
+
+      if (y + alturaCaja > 275) { doc.addPage(); y = 20; }
+
       doc.setDrawColor(212, 175, 55);
       doc.setFillColor(252, 250, 246);
-      doc.roundedRect(14, y, 182, 42, 3, 3, 'FD');
+      doc.roundedRect(14, y, 182, alturaCaja, 3, 3, 'FD');
 
       if (item.foto_url && item.foto_url.startsWith("data:image")) {
         try {
           const formatoImg = item.foto_url.includes("image/png") ? "PNG" : "JPEG";
-          doc.addImage(item.foto_url, formatoImg, 18, y + 4, 34, 34);
+          doc.addImage(item.foto_url, formatoImg, 18, y + 4, 32, 32);
         } catch (e) {
-          doc.rect(18, y + 4, 34, 34);
+          doc.rect(18, y + 4, 32, 32);
           doc.setFontSize(8);
-          doc.text("Sin Foto", 26, y + 21);
+          doc.text("Sin Foto", 25, y + 21);
         }
       } else {
-        doc.rect(18, y + 4, 34, 34);
+        doc.rect(18, y + 4, 32, 32);
         doc.setFontSize(8);
-        doc.text("Foto N/A", 26, y + 21);
+        doc.text("Foto N/A", 25, y + 21);
       }
 
       doc.setTextColor(139, 30, 63);
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text(`${index + 1}. ${item.nombre}`, 56, y + 9);
+      doc.text(lineasNombre, 55, y + 8);
+
+      let cursorY = y + 8 + alturaTexto;
 
       doc.setTextColor(50, 50, 50);
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.text(`Cliente: ${item.cliente}`, 56, y + 16);
-      doc.text(`Categoría: ${item.tipo}`, 56, y + 23);
-      doc.text(`Cantidad Servida: ${item.cantidad} Raciones`, 56, y + 30);
+      doc.text(`Cliente: ${item.cliente} | Categoría: ${item.tipo}`, 55, cursorY);
+      cursorY += 5;
+      doc.text(`Cantidad Servida: ${item.cantidad} Raciones`, 55, cursorY);
 
       doc.setFont("helvetica", "bold");
       doc.setTextColor(139, 30, 63);
-      doc.text(`Precio Unit.: $${precioUnit.toFixed(2)}`, 130, y + 23);
-      doc.text(`Subtotal (Sin IVA): $${totalNeto.toFixed(2)}`, 130, y + 30);
+      doc.text(`Precio Unit.: $${precioUnit.toFixed(2)}`, 135, cursorY - 5);
+      doc.text(`Subtotal: $${totalNeto.toFixed(2)}`, 135, cursorY);
 
-      y += 48;
+      y += alturaCaja + 6;
     });
 
-    if (y > 250) { doc.addPage(); y = 20; }
+    if (y + 15 > 275) { doc.addPage(); y = 20; }
     doc.setFillColor(212, 175, 55);
-    doc.rect(14, y, 182, 9, 'F');
+    doc.rect(14, y, 182, 10, 'F');
     doc.setTextColor(139, 30, 63);
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text(`TOTAL FACTURADO DEL DÍA (SIN IVA): $${granTotalUSD.toFixed(2)} USD`, 18, y + 6);
-    y += 16;
+    doc.text(`TOTAL FACTURADO DEL DÍA (SIN IVA): $${granTotalUSD.toFixed(2)} USD`, 18, y + 7);
+    y += 18;
   }
 
-  if (y > 220) { doc.addPage(); y = 20; }
+  if (y > 230) { doc.addPage(); y = 20; }
 
   doc.setTextColor(139, 30, 63);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.text("2. Relación de Insumos y Productos Gastados en la Preparación", 14, y);
-  y += 6;
+  y += 8;
 
   doc.setFillColor(11, 37, 69);
   doc.rect(14, y, 182, 7, 'F');
@@ -1028,13 +1063,13 @@ async function generarPDFConsolidadoInterno() {
     doc.text("No se registraron consumos de insumos para esta fecha.", 18, y);
   } else {
     consumosFiltrados.forEach(c => {
-      if (y > 270) { doc.addPage(); y = 20; }
+      if (y > 275) { doc.addPage(); y = 20; }
       doc.text(c.rubro, 18, y);
       doc.text(c.producto, 75, y);
       doc.text(`${c.cantidad} ${c.unidad || 'Unid'}`, 145, y);
-      y += 6;
+      y += 8;
       doc.setDrawColor(230, 230, 230);
-      doc.line(14, y - 2, 196, y - 2);
+      doc.line(14, y - 3, 196, y - 3);
     });
   }
 
@@ -1492,7 +1527,7 @@ function populateTiposPlatosDropdown() {
     const valActual = select.value;
     select.innerHTML = `<option value="">Seleccione tipo...</option>`;
     Object.keys(state.preciosPlatos).forEach(tipo => {
-      select.innerHTML += `<option value="${tipo}">${tipo} ($${state.preciosPlatos[tipo].toFixed(2)})</option>`;
+      select.innerHTML += `<option value="${tipo}">${tipo}</option>`;
     });
     select.value = valActual;
   }

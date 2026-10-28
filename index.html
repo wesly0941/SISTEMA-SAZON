@@ -11,6 +11,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <!-- jsPDF para Reportes en PDF -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- html2canvas para la Tarjeta Visual de Cocina -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Estilos Personalizados -->
@@ -78,7 +80,7 @@
             <p class="menu-label">Panel de Cocina</p>
             <button class="nav-btn active" data-target="secComidas"><i class="fas fa-utensils"></i> Carga Diario Comidas</button>
             <button class="nav-btn" data-target="secInsumosCocina"><i class="fas fa-boxes"></i> Consumo de Insumos</button>
-            <button class="nav-btn" data-target="secDiarioCocina"><i class="fas fa-journal-whills"></i> Diario y Gastos del Día</button>
+            <button class="nav-btn" data-target="secDiarioCocina"><i class="fas fa-journal-whills"></i> Diario y Reporte Visual</button>
             <button class="nav-btn" data-target="secNominaCocina"><i class="fas fa-calendar-check"></i> Asistencia Diaria</button>
           </div>
 
@@ -168,7 +170,7 @@
               </div>
               <div class="form-group">
                 <label>Cantidad Gastada Hoy</label>
-                <input type="number" id="cantGastoInsumo" step="0.1" min="0.1" placeholder="Ej: 1.0" required />
+                <input type="number" id="cantGastoInsumo" step="0.1" min="0.1" placeholder="Ej: 10.0" required />
               </div>
               <div class="form-group align-end">
                 <button type="submit" class="btn btn-primary"><i class="fas fa-minus-circle"></i> Registrar Gasto</button>
@@ -177,35 +179,42 @@
           </div>
         </section>
 
-        <!-- MÓDULO COCINA: DIARIO -->
+        <!-- MÓDULO COCINA: DIARIO Y REPORTE VISUAL -->
         <section id="secDiarioCocina" class="content-section hidden">
-          <h2><i class="fas fa-journal-whills"></i> Diario de lo Cocinado y Gastos de Insumos</h2>
+          <h2><i class="fas fa-journal-whills"></i> Diario y Reporte Visual de Cocina</h2>
           <div class="card">
-            <div class="form-group inline-group" style="max-width: 350px;">
-              <label>Fecha de Consulta:</label>
-              <input type="date" id="filtroFechaDiario" />
+            <div class="card-header" style="flex-wrap: wrap; gap: 15px;">
+              <div class="form-group inline-group" style="margin: 0;">
+                <label>Fecha de Consulta:</label>
+                <input type="date" id="filtroFechaDiario" />
+              </div>
+              <button onclick="descargarReporteImagenCocina()" class="btn btn-success"><i class="fas fa-image"></i> Descargar Reporte en Imagen (PNG)</button>
             </div>
           </div>
 
-          <div class="card-grid">
-            <div class="card">
-              <h3><i class="fas fa-utensils"></i> Platos Elaborados en la Fecha</h3>
-              <div id="diarioPlatosContainer"></div>
+          <!-- CONTENEDOR CAPTURABLE PARA LA IMAGEN DE COCINA -->
+          <div id="reporteCocinaVisualCard" class="card" style="background: #FFF; border: 2px solid var(--color-primary); padding: 25px;">
+            <div style="text-align: center; border-bottom: 2px solid var(--color-primary); padding-bottom: 15px; margin-bottom: 20px;">
+              <h3 style="color: var(--color-primary); font-size: 1.4em;">EL SAZÓN DE HELEM C.A.</h3>
+              <p style="color: var(--color-text-muted); font-weight: bold;">REPORTE DIARIO DE OPERACIONES DE COCINA</p>
+              <p id="labelFechaReporteVisual" style="font-size: 0.95em; margin-top: 5px;"></p>
             </div>
-            <div class="card">
-              <h3><i class="fas fa-shopping-basket"></i> Relación de Insumos Consumidos</h3>
-              <div class="table-responsive">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Insumo / Producto</th>
-                      <th>Rubro</th>
-                      <th>Cantidad Gastada</th>
-                    </tr>
-                  </thead>
-                  <tbody id="tablaDiarioInsumos"></tbody>
-                </table>
-              </div>
+
+            <h4 style="color: var(--color-primary); margin-bottom: 10px;"><i class="fas fa-utensils"></i> Platos y Menús Servidos</h4>
+            <div id="diarioPlatosContainer" style="margin-bottom: 25px;"></div>
+
+            <h4 style="color: var(--color-primary); margin-bottom: 10px;"><i class="fas fa-shopping-basket"></i> Relación de Rubros e Insumos Gastados</h4>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Insumo / Producto</th>
+                    <th>Rubro</th>
+                    <th>Cantidad Gastada</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaDiarioInsumos"></tbody>
+              </table>
             </div>
           </div>
         </section>
