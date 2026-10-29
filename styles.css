@@ -476,6 +476,16 @@ table th {
   align-items: center;
 }
 
+.modal-card {
+  background: #FFF;
+  padding: 30px;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 450px;
+  position: relative;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+}
+
 .modal-content {
   max-width: 90%;
   max-height: 85%;
@@ -485,10 +495,10 @@ table th {
 
 .modal-close {
   position: absolute;
-  top: 20px;
-  right: 35px;
-  color: #fff;
-  font-size: 40px;
+  top: 15px;
+  right: 25px;
+  color: #333;
+  font-size: 30px;
   font-weight: bold;
   cursor: pointer;
 }

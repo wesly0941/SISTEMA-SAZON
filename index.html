@@ -487,7 +487,7 @@
           </div>
 
           <div class="card">
-            <h3>Registro de Comidas Servidas</h3>
+            <h3>Registro de Comidas Servidas (Control Supervisor)</h3>
             <div class="table-responsive">
               <table>
                 <thead>
@@ -496,12 +496,12 @@
                     <th>Foto</th>
                     <th>Cliente/Empresa</th>
                     <th>Tipo</th>
-                    <th>Plato</th>
+                    <th>Plato / Descripción</th>
                     <th>Cant.</th>
                     <th>P. Unit ($)</th>
                     <th>Total ($)</th>
                     <th>Estatus</th>
-                    <th>Acción</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody id="tablaReportesPlatos"></tbody>
@@ -511,7 +511,7 @@
 
           <div class="card">
             <div class="card-header">
-              <h3><i class="fas fa-shopping-basket"></i> Gastos de Insumos Consumidos en Cocina</h3>
+              <h3><i class="fas fa-shopping-basket"></i> Gastos de Insumos Consumidos en Cocina (Control Supervisor)</h3>
               <div class="form-group inline-group" style="margin:0;">
                 <label>Fecha:</label>
                 <input type="date" id="filtroFechaGastosSup" />
@@ -525,6 +525,7 @@
                     <th>Producto / Insumo</th>
                     <th>Cantidad Gastada</th>
                     <th>Unidad</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody id="tablaGastosInsumosSup"></tbody>
@@ -707,6 +708,58 @@
         </section>
 
       </main>
+    </div>
+  </div>
+
+  <!-- MODAL PARA EDITAR COMIDA (SUPERVISOR) -->
+  <div id="modalEditarComida" class="modal hidden">
+    <div class="modal-card">
+      <span class="modal-close" onclick="cerrarModalComida()">&times;</span>
+      <h3 style="color: var(--color-primary); margin-bottom: 15px;"><i class="fas fa-edit"></i> Modificar Plato Servido</h3>
+      <form id="formEditarComida">
+        <input type="hidden" id="editComidaId" />
+        <div class="form-group">
+          <label>Tipo de Plato</label>
+          <select id="editComidaTipo" required></select>
+        </div>
+        <div class="form-group">
+          <label>Descripción del Plato</label>
+          <input type="text" id="editComidaNombre" required />
+        </div>
+        <div class="form-group">
+          <label>Cliente</label>
+          <select id="editComidaCliente" required></select>
+        </div>
+        <div class="form-group">
+          <label>Cantidad (Raciones)</label>
+          <input type="number" id="editComidaCant" min="1" required />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-save"></i> Guardar Cambios</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL PARA EDITAR GASTO DE INSUMO (SUPERVISOR) -->
+  <div id="modalEditarGasto" class="modal hidden">
+    <div class="modal-card">
+      <span class="modal-close" onclick="cerrarModalGasto()">&times;</span>
+      <h3 style="color: var(--color-primary); margin-bottom: 15px;"><i class="fas fa-edit"></i> Modificar Gasto de Insumo</h3>
+      <form id="formEditarGasto">
+        <input type="hidden" id="editGastoId" />
+        <div class="form-group">
+          <label>Rubro</label>
+          <select id="editGastoRubro" required></select>
+        </div>
+        <div class="form-group">
+          <label>Producto</label>
+          <select id="editGastoProducto" required></select>
+        </div>
+        <div class="form-group">
+          <label>Cantidad Gastada</label>
+          <input type="number" step="0.1" id="editGastoCant" min="0.1" required />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-save"></i> Guardar Cambios (Actualiza Inventario)</button>
+      </form>
     </div>
   </div>
 

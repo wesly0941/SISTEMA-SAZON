@@ -131,6 +131,10 @@ function setupEvents() {
   if (document.getElementById("formNuevoPlato")) document.getElementById("formNuevoPlato").addEventListener("submit", crearNuevoPlato);
   if (document.getElementById("formNuevoEmpleado")) document.getElementById("formNuevoEmpleado").addEventListener("submit", guardarEmpleadoSubmit);
 
+  if (document.getElementById("formEditarComida")) document.getElementById("formEditarComida").addEventListener("submit", guardarEdicionComidaSup);
+  if (document.getElementById("formEditarGasto")) document.getElementById("formEditarGasto").addEventListener("submit", guardarEdicionGastoSup);
+  if (document.getElementById("editGastoRubro")) document.getElementById("editGastoRubro").addEventListener("change", populateProductosEdicionGasto);
+
   if (document.getElementById("filtroFechaDiario")) document.getElementById("filtroFechaDiario").addEventListener("change", renderDiarioCocina);
   if (document.getElementById("filtroClienteCobros")) document.getElementById("filtroClienteCobros").addEventListener("change", renderReportesCocina);
   if (document.getElementById("filtroFechaGastosSup")) document.getElementById("filtroFechaGastosSup").addEventListener("change", renderGastosInsumosSup);
@@ -273,27 +277,20 @@ function populateRubrosFijos() {
   const regRubro = document.getElementById("regRubroInsumo");
   const filterRubro = document.getElementById("filterRubroInventario");
   const selectRubroCocina = document.getElementById("selectRubroInsumo");
+  const editGastoRubro = document.getElementById("editGastoRubro");
 
-  if (regRubro) {
-    const act = regRubro.value;
-    regRubro.innerHTML = "";
-    RUBROS_FIJOS.forEach(r => { regRubro.innerHTML += `<option value="${r}">${r}</option>`; });
-    if (act && RUBROS_FIJOS.includes(act)) regRubro.value = act;
-  }
-
-  if (filterRubro) {
-    const act = filterRubro.value;
-    filterRubro.innerHTML = `<option value="">TODOS LOS RUBROS</option>`;
-    RUBROS_FIJOS.forEach(r => { filterRubro.innerHTML += `<option value="${r}">${r}</option>`; });
-    filterRubro.value = act;
-  }
-
-  if (selectRubroCocina) {
-    const act = selectRubroCocina.value;
-    selectRubroCocina.innerHTML = `<option value="">Todos los rubros...</option>`;
-    RUBROS_FIJOS.forEach(r => { selectRubroCocina.innerHTML += `<option value="${r}">${r}</option>`; });
-    selectRubroCocina.value = act;
-  }
+  [regRubro, filterRubro, selectRubroCocina, editGastoRubro].forEach(sel => {
+    if (sel) {
+      const act = sel.value;
+      if (sel === filterRubro || sel === selectRubroCocina || sel === editGastoRubro) {
+        sel.innerHTML = `<option value="">Seleccione rubro...</option>`;
+      } else {
+        sel.innerHTML = "";
+      }
+      RUBROS_FIJOS.forEach(r => { sel.innerHTML += `<option value="${r}">${r}</option>`; });
+      if (act && RUBROS_FIJOS.includes(act)) sel.value = act;
+    }
+  });
 }
 
 function actualizarSubProductosInventario() {
@@ -401,23 +398,16 @@ function populateClientesDropdown() {
   const selCocina = document.getElementById("selectClientePlatoCocina");
   const selReporte = document.getElementById("filtroClienteCobros");
   const selPdf = document.getElementById("pdfSelectCliente");
+  const editComidaCliente = document.getElementById("editComidaCliente");
 
-  if (selCocina) {
-    selCocina.innerHTML = `<option value="">Seleccione cliente...</option>`;
-    state.clientes.forEach(c => { selCocina.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`; });
-  }
-
-  if (selReporte) {
-    const act = selReporte.value;
-    selReporte.innerHTML = `<option value="">TODOS LOS CLIENTES</option>`;
-    state.clientes.forEach(c => { selReporte.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`; });
-    selReporte.value = act;
-  }
-
-  if (selPdf) {
-    selPdf.innerHTML = `<option value="">TODOS LOS CLIENTES</option>`;
-    state.clientes.forEach(c => { selPdf.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`; });
-  }
+  [selCocina, selReporte, selPdf, editComidaCliente].forEach((sel, idx) => {
+    if (sel) {
+      const act = sel.value;
+      sel.innerHTML = idx === 1 || idx === 2 ? `<option value="">TODOS LOS CLIENTES</option>` : `<option value="">Seleccione cliente...</option>`;
+      state.clientes.forEach(c => { sel.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`; });
+      if (act) sel.value = act;
+    }
+  });
 }
 
 async function crearNuevoCliente(e) {
@@ -636,7 +626,6 @@ function renderDiarioCocina() {
   }
 }
 
-// DESCARGAR REPORTE VISUAL EN IMAGEN PARA COCINA
 function descargarReporteImagenCocina() {
   const cardVisual = document.getElementById("reporteCocinaVisualCard");
   if (!cardVisual) return;
@@ -660,23 +649,18 @@ async function cargarComidasBD() {
 function populateTiposPlatosDropdown() {
   const select = document.getElementById("selectTipoPlato");
   const selectPdf = document.getElementById("pdfSelectTipoComida");
+  const editComidaTipo = document.getElementById("editComidaTipo");
 
-  if (select) {
-    const valActual = select.value;
-    // SIN PRECIOS PARA EL ROL DE COCINA
-    select.innerHTML = `<option value="">Seleccione tipo...</option>`;
-    Object.keys(state.preciosPlatos).forEach(tipo => {
-      select.innerHTML += `<option value="${tipo}">${tipo}</option>`;
-    });
-    select.value = valActual;
-  }
-
-  if (selectPdf) {
-    selectPdf.innerHTML = `<option value="">TODAS LAS COMIDAS</option>`;
-    Object.keys(state.preciosPlatos).forEach(tipo => {
-      selectPdf.innerHTML += `<option value="${tipo}">${tipo}</option>`;
-    });
-  }
+  [select, selectPdf, editComidaTipo].forEach((sel, idx) => {
+    if (sel) {
+      const act = sel.value;
+      sel.innerHTML = idx === 1 ? `<option value="">TODAS LAS COMIDAS</option>` : `<option value="">Seleccione tipo...</option>`;
+      Object.keys(state.preciosPlatos).forEach(tipo => {
+        sel.innerHTML += `<option value="${tipo}">${tipo}</option>`;
+      });
+      if (act) sel.value = act;
+    }
+  });
 }
 
 async function guardarPlatoDia(e) {
@@ -715,6 +699,161 @@ async function guardarPlatoDia(e) {
     renderAll();
   } else {
     alert("Error al guardar: " + error.message);
+  }
+}
+
+// MODIFICAR / ELIMINAR COMIDA (SUPERVISOR)
+async function eliminarComidaSup(id) {
+  if (confirm("¿Desea eliminar este registro de plato servido?")) {
+    const { error } = await db.from('comidas_servidas').delete().eq('id', id);
+    if (!error) {
+      await cargarComidasBD();
+      renderAll();
+    }
+  }
+}
+
+function abrirModalEditarComida(id) {
+  const item = state.registroComidas.find(c => c.id === id);
+  if (!item) return;
+
+  document.getElementById("editComidaId").value = item.id;
+  document.getElementById("editComidaTipo").value = item.tipo;
+  document.getElementById("editComidaNombre").value = item.nombre;
+  document.getElementById("editComidaCliente").value = item.cliente;
+  document.getElementById("editComidaCant").value = item.cantidad;
+
+  document.getElementById("modalEditarComida").classList.remove("hidden");
+}
+
+function cerrarModalComida() {
+  document.getElementById("modalEditarComida").classList.add("hidden");
+}
+
+async function guardarEdicionComidaSup(e) {
+  e.preventDefault();
+  const id = parseInt(document.getElementById("editComidaId").value);
+  const tipo = document.getElementById("editComidaTipo").value;
+  const nombre = document.getElementById("editComidaNombre").value.trim();
+  const cliente = document.getElementById("editComidaCliente").value;
+  const cantidad = parseInt(document.getElementById("editComidaCant").value);
+
+  const { error } = await db.from('comidas_servidas').update({
+    tipo, nombre, cliente, cantidad
+  }).eq('id', id);
+
+  if (!error) {
+    alert("Registro de plato actualizado correctamente.");
+    cerrarModalComida();
+    await cargarComidasBD();
+    renderAll();
+  } else {
+    alert("Error al actualizar plato.");
+  }
+}
+
+// MODIFICAR / ELIMINAR GASTO DE INSUMO CON REVERSIÓN EN INVENTARIO (SUPERVISOR)
+async function eliminarGastoInsumoSup(id) {
+  if (confirm("¿Desea eliminar este gasto de insumo? La cantidad consumida será devuelta al inventario actual.")) {
+    const gasto = state.consumosDiarios.find(c => c.id === id);
+    if (gasto) {
+      const prodInv = state.inventario.find(i => i.producto.toLowerCase() === gasto.producto.toLowerCase() && i.rubro === gasto.rubro);
+      if (prodInv) {
+        const nuevoStock = prodInv.stock + parseFloat(gasto.cantidad);
+        await db.from('productos').update({ stock: nuevoStock }).eq('id', prodInv.id);
+      }
+    }
+
+    const { error } = await db.from('consumos_diarios').delete().eq('id', id);
+    if (!error) {
+      await cargarInventarioBD();
+      await cargarConsumosBD();
+      renderAll();
+    }
+  }
+}
+
+function abrirModalEditarGasto(id) {
+  const gasto = state.consumosDiarios.find(c => c.id === id);
+  if (!gasto) return;
+
+  document.getElementById("editGastoId").value = gasto.id;
+  document.getElementById("editGastoRubro").value = gasto.rubro;
+  populateProductosEdicionGasto();
+  document.getElementById("editGastoCant").value = gasto.cantidad;
+
+  const selProd = document.getElementById("editGastoProducto");
+  for (let opt of selProd.options) {
+    if (opt.text.includes(gasto.producto)) {
+      selProd.value = opt.value;
+      break;
+    }
+  }
+
+  document.getElementById("modalEditarGasto").classList.remove("hidden");
+}
+
+function cerrarModalGasto() {
+  document.getElementById("modalEditarGasto").classList.add("hidden");
+}
+
+function populateProductosEdicionGasto() {
+  const rubro = document.getElementById("editGastoRubro").value;
+  const selectProd = document.getElementById("editGastoProducto");
+  if (!selectProd) return;
+
+  selectProd.innerHTML = "";
+  const filtrados = state.inventario.filter(i => !rubro || i.rubro === rubro);
+  filtrados.forEach(prod => {
+    const opt = document.createElement("option");
+    opt.value = prod.id;
+    opt.innerText = `${prod.producto} (Disp: ${prod.stock} ${prod.unidad || 'Unid'})`;
+    selectProd.appendChild(opt);
+  });
+}
+
+async function guardarEdicionGastoSup(e) {
+  e.preventDefault();
+  const id = parseInt(document.getElementById("editGastoId").value);
+  const nuevoRubro = document.getElementById("editGastoRubro").value;
+  const nuevoProdId = parseInt(document.getElementById("editGastoProducto").value);
+  const nuevaCant = parseFloat(document.getElementById("editGastoCant").value);
+
+  const gastoAntiguo = state.consumosDiarios.find(c => c.id === id);
+  const nuevoProdObj = state.inventario.find(i => i.id === nuevoProdId);
+
+  if (!gastoAntiguo || !nuevoProdObj) return;
+
+  const prodAntiguoObj = state.inventario.find(i => i.producto.toLowerCase() === gastoAntiguo.producto.toLowerCase() && i.rubro === gastoAntiguo.rubro);
+  if (prodAntiguoObj) {
+    const stockDevuelto = prodAntiguoObj.stock + parseFloat(gastoAntiguo.cantidad);
+    await db.from('productos').update({ stock: stockDevuelto }).eq('id', prodAntiguoObj.id);
+    await cargarInventarioBD();
+  }
+
+  const prodNuevoActualizado = state.inventario.find(i => i.id === nuevoProdId);
+  if (nuevaCant > prodNuevoActualizado.stock) {
+    alert("La cantidad gastada supera el stock disponible en inventario.");
+    return;
+  }
+  const stockFinal = prodNuevoActualizado.stock - nuevaCant;
+  await db.from('productos').update({ stock: stockFinal }).eq('id', prodNuevoActualizado.id);
+
+  const { error } = await db.from('consumos_diarios').update({
+    rubro: nuevoRubro,
+    producto: prodNuevoActualizado.producto,
+    cantidad: nuevaCant,
+    unidad: prodNuevoActualizado.unidad || 'Unid'
+  }).eq('id', id);
+
+  if (!error) {
+    alert("Gasto de insumo actualizado y stock recalculado correctamente.");
+    cerrarModalGasto();
+    await cargarInventarioBD();
+    await cargarConsumosBD();
+    renderAll();
+  } else {
+    alert("Error al actualizar el gasto.");
   }
 }
 
@@ -786,9 +925,13 @@ function renderReportesCocina() {
             </span>
           </td>
           <td>
-            <button class="btn btn-sm ${item.pagado ? 'btn-secondary' : 'btn-success'}" onclick="togglePagoComida(${item.id})">
-              ${item.pagado ? 'Pendiente' : 'Pagado'}
-            </button>
+            <div style="display:flex; gap:5px;">
+              <button class="btn btn-sm ${item.pagado ? 'btn-secondary' : 'btn-success'}" onclick="togglePagoComida(${item.id})">
+                ${item.pagado ? 'Pend.' : 'Pagado'}
+              </button>
+              <button class="btn btn-sm btn-secondary" onclick="abrirModalEditarComida(${item.id})"><i class="fas fa-edit"></i></button>
+              <button class="btn btn-sm btn-danger" onclick="eliminarComidaSup(${item.id})"><i class="fas fa-trash"></i></button>
+            </div>
           </td>
         </tr>
       `;
@@ -807,7 +950,7 @@ function renderGastosInsumosSup() {
   const consumosFecha = state.consumosDiarios.filter(c => c.fecha === fechaSel);
 
   if (consumosFecha.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" class="description">No hay consumo de insumos registrado en la fecha seleccionada.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="description">No hay consumo de insumos registrado en la fecha seleccionada.</td></tr>`;
   } else {
     consumosFecha.forEach(c => {
       tbody.innerHTML += `
@@ -816,13 +959,17 @@ function renderGastosInsumosSup() {
           <td><strong>${c.producto}</strong></td>
           <td><strong>${c.cantidad}</strong></td>
           <td>${c.unidad || 'Unid'}</td>
+          <td>
+            <button class="btn btn-sm btn-secondary" onclick="abrirModalEditarGasto(${c.id})"><i class="fas fa-edit"></i></button>
+            <button class="btn btn-sm btn-danger" onclick="eliminarGastoInsumoSup(${c.id})"><i class="fas fa-trash"></i></button>
+          </td>
         </tr>
       `;
     });
   }
 }
 
-// REPORTE 1: SOLO PARA EL CLIENTE (CON TEXTO MULTILÍNEA / WRAPPING AUTOMÁTICO)
+// REPORTE 1: SOLO PARA EL CLIENTE
 async function generarPDFSoloCliente() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('p', 'mm', 'a4');
@@ -937,7 +1084,7 @@ async function generarPDFSoloCliente() {
   doc.save(nombreArchivo);
 }
 
-// REPORTE 2: CONSOLIDADO INTERNO (CON TEXTO MULTILÍNEA / WRAPPING AUTOMÁTICO)
+// REPORTE 2: CONSOLIDADO INTERNO
 async function generarPDFConsolidadoInterno() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('p', 'mm', 'a4');
@@ -1500,42 +1647,31 @@ function populateClientesDropdown() {
   const selCocina = document.getElementById("selectClientePlatoCocina");
   const selReporte = document.getElementById("filtroClienteCobros");
   const selPdf = document.getElementById("pdfSelectCliente");
+  const editComidaCliente = document.getElementById("editComidaCliente");
 
-  if (selCocina) {
-    selCocina.innerHTML = `<option value="">Seleccione cliente...</option>`;
-    state.clientes.forEach(c => { selCocina.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`; });
-  }
-
-  if (selReporte) {
-    const act = selReporte.value;
-    selReporte.innerHTML = `<option value="">TODOS LOS CLIENTES</option>`;
-    state.clientes.forEach(c => { selReporte.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`; });
-    selReporte.value = act;
-  }
-
-  if (selPdf) {
-    selPdf.innerHTML = `<option value="">TODOS LOS CLIENTES</option>`;
-    state.clientes.forEach(c => { selPdf.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`; });
-  }
+  [selCocina, selReporte, selPdf, editComidaCliente].forEach((sel, idx) => {
+    if (sel) {
+      const act = sel.value;
+      sel.innerHTML = idx === 1 || idx === 2 ? `<option value="">TODOS LOS CLIENTES</option>` : `<option value="">Seleccione cliente...</option>`;
+      state.clientes.forEach(c => { sel.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`; });
+      if (act) sel.value = act;
+    }
+  });
 }
 
 function populateTiposPlatosDropdown() {
   const select = document.getElementById("selectTipoPlato");
   const selectPdf = document.getElementById("pdfSelectTipoComida");
+  const editComidaTipo = document.getElementById("editComidaTipo");
 
-  if (select) {
-    const valActual = select.value;
-    select.innerHTML = `<option value="">Seleccione tipo...</option>`;
-    Object.keys(state.preciosPlatos).forEach(tipo => {
-      select.innerHTML += `<option value="${tipo}">${tipo}</option>`;
-    });
-    select.value = valActual;
-  }
-
-  if (selectPdf) {
-    selectPdf.innerHTML = `<option value="">TODAS LAS COMIDAS</option>`;
-    Object.keys(state.preciosPlatos).forEach(tipo => {
-      selectPdf.innerHTML += `<option value="${tipo}">${tipo}</option>`;
-    });
-  }
+  [select, selectPdf, editComidaTipo].forEach((sel, idx) => {
+    if (sel) {
+      const act = sel.value;
+      sel.innerHTML = idx === 1 ? `<option value="">TODAS LAS COMIDAS</option>` : `<option value="">Seleccione tipo...</option>`;
+      Object.keys(state.preciosPlatos).forEach(tipo => {
+        sel.innerHTML += `<option value="${tipo}">${tipo}</option>`;
+      });
+      if (act) sel.value = act;
+    }
+  });
 }
