@@ -39,6 +39,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (document.getElementById("pdfFechaComidas")) document.getElementById("pdfFechaComidas").value = hoyStr;
   if (document.getElementById("pdfFechaInsumosInterno")) document.getElementById("pdfFechaInsumosInterno").value = hoyStr;
 
+  if (document.getElementById("filtroDesdeCobros")) document.getElementById("filtroDesdeCobros").value = hoyStr;
+  if (document.getElementById("filtroHastaCobros")) document.getElementById("filtroHastaCobros").value = hoyStr;
+
   const mesInput = document.getElementById("filtroMesNomina");
   if (mesInput) {
     const hoy = new Date();
@@ -136,7 +139,12 @@ function setupEvents() {
   if (document.getElementById("editGastoRubro")) document.getElementById("editGastoRubro").addEventListener("change", populateProductosEdicionGasto);
 
   if (document.getElementById("filtroFechaDiario")) document.getElementById("filtroFechaDiario").addEventListener("change", renderDiarioCocina);
+  
+  // Eventos de filtro para supervisor acumulado
   if (document.getElementById("filtroClienteCobros")) document.getElementById("filtroClienteCobros").addEventListener("change", renderReportesCocina);
+  if (document.getElementById("filtroDesdeCobros")) document.getElementById("filtroDesdeCobros").addEventListener("change", renderReportesCocina);
+  if (document.getElementById("filtroHastaCobros")) document.getElementById("filtroHastaCobros").addEventListener("change", renderReportesCocina);
+
   if (document.getElementById("filtroFechaGastosSup")) document.getElementById("filtroFechaGastosSup").addEventListener("change", renderGastosInsumosSup);
 
   if (document.getElementById("filtroMesNomina")) document.getElementById("filtroMesNomina").addEventListener("change", renderNominaSup);
@@ -578,13 +586,13 @@ async function descontarInsumo(e) {
   }
 }
 
+// REPORTE VISUAL DE COCINA (SOLO COMIDAS, SIN RUBROS)
 function renderDiarioCocina() {
   const fechaInput = document.getElementById("filtroFechaDiario");
   const containerPlatos = document.getElementById("diarioPlatosContainer");
-  const tbodyInsumos = document.getElementById("tablaDiarioInsumos");
   const labelFechaVisual = document.getElementById("labelFechaReporteVisual");
 
-  if (!fechaInput || !containerPlatos || !tbodyInsumos) return;
+  if (!fechaInput || !containerPlatos) return;
   const fechaSel = fechaInput.value;
 
   if (labelFechaVisual) labelFechaVisual.innerText = `Fecha del Reporte: ${fechaSel}`;
@@ -604,23 +612,6 @@ function renderDiarioCocina() {
             <small>Cliente: ${p.cliente} | Cantidad: <strong>${p.cantidad} Raciones</strong></small>
           </div>
         </div>
-      `;
-    });
-  }
-
-  tbodyInsumos.innerHTML = "";
-  const consumosFecha = state.consumosDiarios.filter(c => c.fecha === fechaSel);
-
-  if (consumosFecha.length === 0) {
-    tbodyInsumos.innerHTML = `<tr><td colspan="3" class="description">No hay consumos de insumos registrados en esta fecha.</td></tr>`;
-  } else {
-    consumosFecha.forEach(c => {
-      tbodyInsumos.innerHTML += `
-        <tr>
-          <td><strong>${c.producto}</strong></td>
-          <td><span class="badge">${c.rubro}</span></td>
-          <td><strong>${c.cantidad} ${c.unidad || 'Unid'}</strong></td>
-        </tr>
       `;
     });
   }
@@ -875,16 +866,6 @@ function renderPlatosHoy() {
   });
 }
 
-async function togglePagoComida(id) {
-  const item = state.registroComidas.find(c => c.id === id);
-  if (item) {
-    const nuevoEstado = !item.pagado;
-    await db.from('comidas_servidas').update({ pagado: nuevoEstado }).eq('id', id);
-    await cargarComidasBD();
-    renderAll();
-  }
-}
-
 function verFotoModal(url) {
   const modal = document.getElementById("imageModal");
   const imgFull = document.getElementById("imgModalFull");
@@ -899,43 +880,58 @@ function cerrarModalFoto() {
   if (modal) modal.classList.add("hidden");
 }
 
+// RENDERIZADO ACUMULADO POR CLIENTE Y TIPO DE PLATO CON FILTRO DE FECHAS
 function renderReportesCocina() {
-  const tbody = document.getElementById("tablaReportesPlatos");
+  const tbody = document.getElementById("tablaReportesPlatosAcumulados");
   const filtroCliente = document.getElementById("filtroClienteCobros") ? document.getElementById("filtroClienteCobros").value : "";
+  const desdeFecha = document.getElementById("filtroDesdeCobros") ? document.getElementById("filtroDesdeCobros").value : "";
+  const hastaFecha = document.getElementById("filtroHastaCobros") ? document.getElementById("filtroHastaCobros").value : "";
   if (!tbody) return;
 
   tbody.innerHTML = "";
-  state.registroComidas.forEach(item => {
-    if (!filtroCliente || item.cliente === filtroCliente) {
-      const precio = state.preciosPlatos[item.tipo] || 0;
-      const totalNeto = (precio * item.cantidad).toFixed(2);
-      tbody.innerHTML += `
-        <tr>
-          <td>${item.fecha_full} ${item.hora || ''}</td>
-          <td><img src="${item.foto_url}" class="img-thumb" onclick="verFotoModal('${item.foto_url}')"/></td>
-          <td><strong>${item.cliente}</strong></td>
-          <td>${item.tipo}</td>
-          <td>${item.nombre}</td>
-          <td>${item.cantidad}</td>
-          <td>$${precio.toFixed(2)}</td>
-          <td><strong>$${totalNeto}</strong></td>
-          <td>
-            <span class="${item.pagado ? 'badge-paid' : 'badge-pending'}">
-              ${item.pagado ? 'PAGADO' : 'PENDIENTE'}
-            </span>
-          </td>
-          <td>
-            <div style="display:flex; gap:5px;">
-              <button class="btn btn-sm ${item.pagado ? 'btn-secondary' : 'btn-success'}" onclick="togglePagoComida(${item.id})">
-                ${item.pagado ? 'Pend.' : 'Pagado'}
-              </button>
-              <button class="btn btn-sm btn-secondary" onclick="abrirModalEditarComida(${item.id})"><i class="fas fa-edit"></i></button>
-              <button class="btn btn-sm btn-danger" onclick="eliminarComidaSup(${item.id})"><i class="fas fa-trash"></i></button>
-            </div>
-          </td>
-        </tr>
-      `;
+
+  // Filtrar por cliente y fechas
+  const filtrados = state.registroComidas.filter(item => {
+    const matchCliente = !filtroCliente || item.cliente === filtroCliente;
+    const matchDesde = !desdeFecha || item.fecha_full >= desdeFecha;
+    const matchHasta = !hastaFecha || item.fecha_full <= hastaFecha;
+    return matchCliente && matchDesde && matchHasta;
+  });
+
+  // Agrupar por Cliente + Tipo de Plato
+  const acumuladoMap = {};
+  filtrados.forEach(item => {
+    const clave = `${item.cliente}___${item.tipo}`;
+    if (!acumuladoMap[clave]) {
+      acumuladoMap[clave] = {
+        cliente: item.cliente,
+        tipo: item.tipo,
+        totalCantidad: 0
+      };
     }
+    acumuladoMap[clave].totalCantidad += item.cantidad;
+  });
+
+  const keys = Object.keys(acumuladoMap);
+  if (keys.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="description">No hay registros acumulados para los filtros seleccionados.</td></tr>`;
+    return;
+  }
+
+  keys.forEach(clave => {
+    const grupo = acumuladoMap[clave];
+    const precio = state.preciosPlatos[grupo.tipo] || 0;
+    const totalNeto = precio * grupo.totalCantidad;
+
+    tbody.innerHTML += `
+      <tr>
+        <td><strong>${grupo.cliente}</strong></td>
+        <td><span class="badge">${grupo.tipo}</span></td>
+        <td><strong>${grupo.totalCantidad} Raciones</strong></td>
+        <td>$${precio.toFixed(2)}</td>
+        <td><strong>$${totalNeto.toFixed(2)}</strong></td>
+      </tr>
+    `;
   });
 }
 
@@ -1380,6 +1376,7 @@ async function marcarAsistencia(fecha, cedula) {
   }
 }
 
+// NÓMINA CALCULADA SOBRE BASE DE 20 DÍAS
 function renderNominaSup() {
   const tbody = document.getElementById("tablaCalculoNomina");
   const filtroMes = document.getElementById("filtroMesNomina");
@@ -1391,7 +1388,9 @@ function renderNominaSup() {
   tbody.innerHTML = "";
 
   state.nomina.forEach(emp => {
-    const pagoDia = emp.sueldoMensual / 30;
+    // FÓRMULA SOLICITADA: Sueldo Mensual dividido entre 20 días
+    const pagoDia = emp.sueldoMensual / 20;
+
     const asistenciasEmp = state.asistencias.filter(a => {
       if (!a.fecha || a.cedula !== emp.cedula || !a.presente) return false;
       if (!a.fecha.startsWith(mesSel)) return false;
@@ -1593,35 +1592,52 @@ async function cargarInventarioExcel(e) {
 
 function exportarComidasExcel() {
   const filtroCliente = document.getElementById("filtroClienteCobros") ? document.getElementById("filtroClienteCobros").value : "";
+  const desdeFecha = document.getElementById("filtroDesdeCobros") ? document.getElementById("filtroDesdeCobros").value : "";
+  const hastaFecha = document.getElementById("filtroHastaCobros") ? document.getElementById("filtroHastaCobros").value : "";
+
   const data = [
-    ["Fecha", "Hora", "Cliente / Empresa", "Tipo de Plato", "Descripción", "Cantidad", "Precio Unit. (\$)", "Total Neto (\$)", "Estatus Pago"]
+    ["Cliente / Empresa", "Tipo / Plato", "Total Raciones Acumuladas", "Precio Unit. ($)", "Total Acumulado ($)"]
   ];
 
-  state.registroComidas.forEach(item => {
-    if (!filtroCliente || item.cliente === filtroCliente) {
-      const precio = state.preciosPlatos[item.tipo] || 0;
-      data.push([item.fecha_full, item.hora, item.cliente, item.tipo, item.nombre, item.cantidad, precio, precio * item.cantidad, item.pagado ? "PAGADO" : "PENDIENTE"]);
+  const filtrados = state.registroComidas.filter(item => {
+    const matchCliente = !filtroCliente || item.cliente === filtroCliente;
+    const matchDesde = !desdeFecha || item.fecha_full >= desdeFecha;
+    const matchHasta = !hastaFecha || item.fecha_full <= hastaFecha;
+    return matchCliente && matchDesde && matchHasta;
+  });
+
+  const acumuladoMap = {};
+  filtrados.forEach(item => {
+    const clave = `${item.cliente}___${item.tipo}`;
+    if (!acumuladoMap[clave]) {
+      acumuladoMap[clave] = { cliente: item.cliente, tipo: item.tipo, totalCantidad: 0 };
     }
+    acumuladoMap[clave].totalCantidad += item.cantidad;
+  });
+
+  Object.values(acumuladoMap).forEach(grupo => {
+    const precio = state.preciosPlatos[grupo.tipo] || 0;
+    data.push([grupo.cliente, grupo.tipo, grupo.totalCantidad, precio, precio * grupo.totalCantidad]);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(data);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Comidas_Cobros");
-  XLSX.writeFile(wb, "Cobros_Comidas.xlsx");
+  XLSX.utils.book_append_sheet(wb, ws, "Comidas_Acumuladas");
+  XLSX.writeFile(wb, "Acumulado_Comidas_Clientes.xlsx");
 }
 
 function exportarNominaExcel() {
   const mesSel = document.getElementById("filtroMesNomina").value;
   const quincenaSel = document.getElementById("filtroQuincenaNomina").value;
   const data = [
-    ["Reporte de Nomina - El Sazón de Helem C.A."],
+    ["Reporte de Nomina (Base 20 Días) - El Sazón de Helem C.A."],
     [`Mes: ${mesSel}`, `Periodo: ${quincenaSel}`, `Tasa: ${state.tasaCambio} Bs/$`],
     [],
-    ["Cédula", "Empleado", "Cargo", "Banco", "Teléfono", "Sueldo ($)", "Días", "Total ($)", "Bs", "Estatus"]
+    ["Cédula", "Empleado", "Cargo", "Banco", "Teléfono", "Sueldo Base ($)", "Días Trab.", "Total ($)", "Bs", "Estatus"]
   ];
 
   state.nomina.forEach(emp => {
-    const pagoDia = emp.sueldoMensual / 30;
+    const pagoDia = emp.sueldoMensual / 20;
     const asistenciasEmp = state.asistencias.filter(a => {
       if (!a.fecha || a.cedula !== emp.cedula || !a.presente) return false;
       if (!a.fecha.startsWith(mesSel)) return false;
@@ -1640,38 +1656,5 @@ function exportarNominaExcel() {
   const ws = XLSX.utils.aoa_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Nomina");
-  XLSX.writeFile(wb, `Nomina_${mesSel}_${quincenaSel}.xlsx`);
-}
-
-function populateClientesDropdown() {
-  const selCocina = document.getElementById("selectClientePlatoCocina");
-  const selReporte = document.getElementById("filtroClienteCobros");
-  const selPdf = document.getElementById("pdfSelectCliente");
-  const editComidaCliente = document.getElementById("editComidaCliente");
-
-  [selCocina, selReporte, selPdf, editComidaCliente].forEach((sel, idx) => {
-    if (sel) {
-      const act = sel.value;
-      sel.innerHTML = idx === 1 || idx === 2 ? `<option value="">TODOS LOS CLIENTES</option>` : `<option value="">Seleccione cliente...</option>`;
-      state.clientes.forEach(c => { sel.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`; });
-      if (act) sel.value = act;
-    }
-  });
-}
-
-function populateTiposPlatosDropdown() {
-  const select = document.getElementById("selectTipoPlato");
-  const selectPdf = document.getElementById("pdfSelectTipoComida");
-  const editComidaTipo = document.getElementById("editComidaTipo");
-
-  [select, selectPdf, editComidaTipo].forEach((sel, idx) => {
-    if (sel) {
-      const act = sel.value;
-      sel.innerHTML = idx === 1 ? `<option value="">TODAS LAS COMIDAS</option>` : `<option value="">Seleccione tipo...</option>`;
-      Object.keys(state.preciosPlatos).forEach(tipo => {
-        sel.innerHTML += `<option value="${tipo}">${tipo}</option>`;
-      });
-      if (act) sel.value = act;
-    }
-  });
+  XLSX.writeFile(wb, `Nomina_Base20_${mesSel}_${quincenaSel}.xlsx`);
 }

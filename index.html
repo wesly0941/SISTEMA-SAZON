@@ -179,7 +179,7 @@
           </div>
         </section>
 
-        <!-- MÓDULO COCINA: DIARIO Y REPORTE VISUAL -->
+        <!-- MÓDULO COCINA: DIARIO Y REPORTE VISUAL (SIN RUBROS EN IMAGEN) -->
         <section id="secDiarioCocina" class="content-section hidden">
           <h2><i class="fas fa-journal-whills"></i> Diario y Reporte Visual de Cocina</h2>
           <div class="card">
@@ -192,30 +192,16 @@
             </div>
           </div>
 
-          <!-- CONTENEDOR CAPTURABLE PARA LA IMAGEN DE COCINA -->
+          <!-- CONTENEDOR CAPTURABLE PARA LA IMAGEN DE COCINA (SOLO COMIDAS) -->
           <div id="reporteCocinaVisualCard" class="card" style="background: #FFF; border: 2px solid var(--color-primary); padding: 25px;">
             <div style="text-align: center; border-bottom: 2px solid var(--color-primary); padding-bottom: 15px; margin-bottom: 20px;">
               <h3 style="color: var(--color-primary); font-size: 1.4em;">EL SAZÓN DE HELEM C.A.</h3>
-              <p style="color: var(--color-text-muted); font-weight: bold;">REPORTE DIARIO DE OPERACIONES DE COCINA</p>
+              <p style="color: var(--color-text-muted); font-weight: bold;">REPORTE DIARIO DE COMIDAS SERVIDAS</p>
               <p id="labelFechaReporteVisual" style="font-size: 0.95em; margin-top: 5px;"></p>
             </div>
 
-            <h4 style="color: var(--color-primary); margin-bottom: 10px;"><i class="fas fa-utensils"></i> Platos y Menús Servidos</h4>
-            <div id="diarioPlatosContainer" style="margin-bottom: 25px;"></div>
-
-            <h4 style="color: var(--color-primary); margin-bottom: 10px;"><i class="fas fa-shopping-basket"></i> Relación de Rubros e Insumos Gastados</h4>
-            <div class="table-responsive">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Insumo / Producto</th>
-                    <th>Rubro</th>
-                    <th>Cantidad Gastada</th>
-                  </tr>
-                </thead>
-                <tbody id="tablaDiarioInsumos"></tbody>
-              </table>
-            </div>
+            <h4 style="color: var(--color-primary); margin-bottom: 10px;"><i class="fas fa-utensils"></i> Menús Servidos del Día</h4>
+            <div id="diarioPlatosContainer" style="margin-bottom: 15px;"></div>
           </div>
         </section>
 
@@ -468,43 +454,47 @@
           </div>
         </section>
 
-        <!-- MÓDULO SUPERVISOR: REPORTES COBROS Y GASTOS -->
+        <!-- MÓDULO SUPERVISOR: REPORTES COBROS Y GASTOS (CON FILTRO DE FECHAS ACUMULADO) -->
         <section id="secReportesCocina" class="content-section hidden">
-          <h2><i class="fas fa-receipt"></i> Reportes de Cocina: Cobros y Gastos Diarios</h2>
+          <h2><i class="fas fa-receipt"></i> Reportes de Cocina: Cobros y Gastos Acumulados</h2>
           
           <div class="card">
+            <h3>Filtros de Auditoría y Acumulado por Cliente</h3>
             <div class="card-grid" style="align-items: flex-end;">
-              <div class="form-group" style="margin-bottom:0;">
-                <label>Filtrar Reporte de Comidas por Cliente</label>
+              <div class="form-group">
+                <label>Filtrar por Cliente</label>
                 <select id="filtroClienteCobros">
                   <option value="">TODOS LOS CLIENTES</option>
                 </select>
               </div>
+              <div class="form-group">
+                <label>Desde Fecha</label>
+                <input type="date" id="filtroDesdeCobros" />
+              </div>
+              <div class="form-group">
+                <label>Hasta Fecha</label>
+                <input type="date" id="filtroHastaCobros" />
+              </div>
               <div>
-                <button id="btnExportarComidasExcel" class="btn btn-secondary btn-block"><i class="fas fa-file-excel"></i> Exportar Registro a Excel</button>
+                <button id="btnExportarComidasExcel" class="btn btn-secondary btn-block"><i class="fas fa-file-excel"></i> Exportar Acumulado a Excel</button>
               </div>
             </div>
           </div>
 
           <div class="card">
-            <h3>Registro de Comidas Servidas (Control Supervisor)</h3>
+            <h3>Resumen Acumulado de Comidas Servidas (Vista Gerencial)</h3>
             <div class="table-responsive">
               <table>
                 <thead>
                   <tr>
-                    <th>Fecha/Hora</th>
-                    <th>Foto</th>
-                    <th>Cliente/Empresa</th>
-                    <th>Tipo</th>
-                    <th>Plato / Descripción</th>
-                    <th>Cant.</th>
-                    <th>P. Unit ($)</th>
-                    <th>Total ($)</th>
-                    <th>Estatus</th>
-                    <th>Acciones</th>
+                    <th>Cliente / Empresa</th>
+                    <th>Tipo / Plato</th>
+                    <th>Total Raciones Acumuladas</th>
+                    <th>Precio Unit. ($)</th>
+                    <th>Total Acumulado ($)</th>
                   </tr>
                 </thead>
-                <tbody id="tablaReportesPlatos"></tbody>
+                <tbody id="tablaReportesPlatosAcumulados"></tbody>
               </table>
             </div>
           </div>
@@ -578,9 +568,9 @@
           </div>
         </section>
 
-        <!-- MÓDULO SUPERVISOR: NÓMINA -->
+        <!-- MÓDULO SUPERVISOR: NÓMINA (BASE 20 DÍAS) -->
         <section id="secNominaSup" class="content-section hidden">
-          <h2><i class="fas fa-money-bill-wave"></i> Liquidación de Nómina y Control de Pagos</h2>
+          <h2><i class="fas fa-money-bill-wave"></i> Liquidación de Nómina (Base 20 Días) y Control de Pagos</h2>
 
           <div class="card rate-card">
             <div class="form-group inline-group">
@@ -609,7 +599,7 @@
                 </div>
                 <div class="form-group">
                   <label>Sueldo Base Mensual (USD $)</label>
-                  <input type="number" step="0.01" id="sueldoEmpleado" placeholder="Ej: 30.00" required />
+                  <input type="number" step="0.01" id="sueldoEmpleado" placeholder="Ej: 400.00" required />
                 </div>
                 <div class="form-group">
                   <label>Banco (Pago Móvil)</label>
@@ -635,9 +625,9 @@
               <div class="form-group">
                 <label>Periodo Quincenal</label>
                 <select id="filtroQuincenaNomina">
-                  <option value="MES">Mes Completo (Días 01 al 30/31)</option>
+                  <option value="MES">Mes Completo</option>
                   <option value="Q1">Primera Quincena (Días 01 al 15)</option>
-                  <option value="Q2">Segunda Quincena (Días 16 al 30/31)</option>
+                  <option value="Q2">Segunda Quincena (Días 16 al 31)</option>
                 </select>
               </div>
               <button id="btnExportarNominaExcel" class="btn btn-secondary btn-block"><i class="fas fa-file-excel"></i> Descargar Nómina en Excel</button>
@@ -664,7 +654,7 @@
           </div>
 
           <div class="card">
-            <h3>Resultados de Liquidación y Registro de Pagos por Trabajador</h3>
+            <h3>Resultados de Liquidación (Cálculo sobre 20 Días) y Registro de Pagos</h3>
             <div class="table-responsive">
               <table>
                 <thead>
