@@ -140,7 +140,6 @@ function setupEvents() {
 
   if (document.getElementById("filtroFechaDiario")) document.getElementById("filtroFechaDiario").addEventListener("change", renderDiarioCocina);
   
-  // Eventos de filtro para supervisor acumulado
   if (document.getElementById("filtroClienteCobros")) document.getElementById("filtroClienteCobros").addEventListener("change", renderReportesCocina);
   if (document.getElementById("filtroDesdeCobros")) document.getElementById("filtroDesdeCobros").addEventListener("change", renderReportesCocina);
   if (document.getElementById("filtroHastaCobros")) document.getElementById("filtroHastaCobros").addEventListener("change", renderReportesCocina);
@@ -866,6 +865,16 @@ function renderPlatosHoy() {
   });
 }
 
+async function togglePagoComida(id) {
+  const item = state.registroComidas.find(c => c.id === id);
+  if (item) {
+    const nuevoEstado = !item.pagado;
+    await db.from('comidas_servidas').update({ pagado: nuevoEstado }).eq('id', id);
+    await cargarComidasBD();
+    renderAll();
+  }
+}
+
 function verFotoModal(url) {
   const modal = document.getElementById("imageModal");
   const imgFull = document.getElementById("imgModalFull");
@@ -880,17 +889,21 @@ function cerrarModalFoto() {
   if (modal) modal.classList.add("hidden");
 }
 
-// RENDERIZADO ACUMULADO POR CLIENTE Y TIPO DE PLATO CON FILTRO DE FECHAS
+// RENDERIZADO EN SUPERVISIÓN: TABLA 1 (RESUMEN ACUMULADO) + TABLA 2 (DETALLE CON FOTOS POR RANGO/DÍA)
 function renderReportesCocina() {
-  const tbody = document.getElementById("tablaReportesPlatosAcumulados");
+  const tbodyAcumulado = document.getElementById("tablaReportesPlatosAcumulados");
+  const tbodyDetalle = document.getElementById("tablaReportesPlatosDetallados");
+
   const filtroCliente = document.getElementById("filtroClienteCobros") ? document.getElementById("filtroClienteCobros").value : "";
   const desdeFecha = document.getElementById("filtroDesdeCobros") ? document.getElementById("filtroDesdeCobros").value : "";
   const hastaFecha = document.getElementById("filtroHastaCobros") ? document.getElementById("filtroHastaCobros").value : "";
-  if (!tbody) return;
 
-  tbody.innerHTML = "";
+  if (!tbodyAcumulado || !tbodyDetalle) return;
 
-  // Filtrar por cliente y fechas
+  tbodyAcumulado.innerHTML = "";
+  tbodyDetalle.innerHTML = "";
+
+  // Filtrar registros por cliente y fechas seleccionadas
   const filtrados = state.registroComidas.filter(item => {
     const matchCliente = !filtroCliente || item.cliente === filtroCliente;
     const matchDesde = !desdeFecha || item.fecha_full >= desdeFecha;
@@ -898,7 +911,7 @@ function renderReportesCocina() {
     return matchCliente && matchDesde && matchHasta;
   });
 
-  // Agrupar por Cliente + Tipo de Plato
+  // 1. DIBUJAR TABLA GERENCIAL (RESUMEN ACUMULADO)
   const acumuladoMap = {};
   filtrados.forEach(item => {
     const clave = `${item.cliente}___${item.tipo}`;
@@ -914,25 +927,61 @@ function renderReportesCocina() {
 
   const keys = Object.keys(acumuladoMap);
   if (keys.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="description">No hay registros acumulados para los filtros seleccionados.</td></tr>`;
-    return;
+    tbodyAcumulado.innerHTML = `<tr><td colspan="5" class="description">No hay registros acumulados para los filtros seleccionados.</td></tr>`;
+  } else {
+    keys.forEach(clave => {
+      const grupo = acumuladoMap[clave];
+      const precio = state.preciosPlatos[grupo.tipo] || 0;
+      const totalNeto = precio * grupo.totalCantidad;
+
+      tbodyAcumulado.innerHTML += `
+        <tr>
+          <td><strong>${grupo.cliente}</strong></td>
+          <td><span class="badge">${grupo.tipo}</span></td>
+          <td><strong>${grupo.totalCantidad} Raciones</strong></td>
+          <td>$${precio.toFixed(2)}</td>
+          <td><strong>$${totalNeto.toFixed(2)}</strong></td>
+        </tr>
+      `;
+    });
   }
 
-  keys.forEach(clave => {
-    const grupo = acumuladoMap[clave];
-    const precio = state.preciosPlatos[grupo.tipo] || 0;
-    const totalNeto = precio * grupo.totalCantidad;
+  // 2. DIBUJAR TABLA DETALLADA CON FOTOS Y EDITAR/ELIMINAR
+  if (filtrados.length === 0) {
+    tbodyDetalle.innerHTML = `<tr><td colspan="10" class="description">No existen registros detallados para la fecha/rango seleccionado.</td></tr>`;
+  } else {
+    filtrados.forEach(item => {
+      const precio = state.preciosPlatos[item.tipo] || 0;
+      const totalNeto = (precio * item.cantidad).toFixed(2);
 
-    tbody.innerHTML += `
-      <tr>
-        <td><strong>${grupo.cliente}</strong></td>
-        <td><span class="badge">${grupo.tipo}</span></td>
-        <td><strong>${grupo.totalCantidad} Raciones</strong></td>
-        <td>$${precio.toFixed(2)}</td>
-        <td><strong>$${totalNeto.toFixed(2)}</strong></td>
-      </tr>
-    `;
-  });
+      tbodyDetalle.innerHTML += `
+        <tr>
+          <td>${item.fecha_full} ${item.hora || ''}</td>
+          <td><img src="${item.foto_url}" class="img-thumb" onclick="verFotoModal('${item.foto_url}')"/></td>
+          <td><strong>${item.cliente}</strong></td>
+          <td>${item.tipo}</td>
+          <td>${item.nombre}</td>
+          <td>${item.cantidad}</td>
+          <td>$${precio.toFixed(2)}</td>
+          <td><strong>$${totalNeto}</strong></td>
+          <td>
+            <span class="${item.pagado ? 'badge-paid' : 'badge-pending'}">
+              ${item.pagado ? 'PAGADO' : 'PENDIENTE'}
+            </span>
+          </td>
+          <td>
+            <div style="display:flex; gap:5px;">
+              <button class="btn btn-sm ${item.pagado ? 'btn-secondary' : 'btn-success'}" onclick="togglePagoComida(${item.id})">
+                ${item.pagado ? 'Pend.' : 'Pagado'}
+              </button>
+              <button class="btn btn-sm btn-secondary" onclick="abrirModalEditarComida(${item.id})"><i class="fas fa-edit"></i></button>
+              <button class="btn btn-sm btn-danger" onclick="eliminarComidaSup(${item.id})"><i class="fas fa-trash"></i></button>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+  }
 }
 
 function renderGastosInsumosSup() {
@@ -1388,7 +1437,6 @@ function renderNominaSup() {
   tbody.innerHTML = "";
 
   state.nomina.forEach(emp => {
-    // FÓRMULA SOLICITADA: Sueldo Mensual dividido entre 20 días
     const pagoDia = emp.sueldoMensual / 20;
 
     const asistenciasEmp = state.asistencias.filter(a => {

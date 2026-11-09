@@ -179,7 +179,7 @@
           </div>
         </section>
 
-        <!-- MÓDULO COCINA: DIARIO Y REPORTE VISUAL (SIN RUBROS EN IMAGEN) -->
+        <!-- MÓDULO COCINA: DIARIO Y REPORTE VISUAL (SOLO COMIDAS) -->
         <section id="secDiarioCocina" class="content-section hidden">
           <h2><i class="fas fa-journal-whills"></i> Diario y Reporte Visual de Cocina</h2>
           <div class="card">
@@ -192,7 +192,6 @@
             </div>
           </div>
 
-          <!-- CONTENEDOR CAPTURABLE PARA LA IMAGEN DE COCINA (SOLO COMIDAS) -->
           <div id="reporteCocinaVisualCard" class="card" style="background: #FFF; border: 2px solid var(--color-primary); padding: 25px;">
             <div style="text-align: center; border-bottom: 2px solid var(--color-primary); padding-bottom: 15px; margin-bottom: 20px;">
               <h3 style="color: var(--color-primary); font-size: 1.4em;">EL SAZÓN DE HELEM C.A.</h3>
@@ -454,12 +453,12 @@
           </div>
         </section>
 
-        <!-- MÓDULO SUPERVISOR: REPORTES COBROS Y GASTOS (CON FILTRO DE FECHAS ACUMULADO) -->
+        <!-- MÓDULO SUPERVISOR: REPORTES COBROS Y GASTOS -->
         <section id="secReportesCocina" class="content-section hidden">
-          <h2><i class="fas fa-receipt"></i> Reportes de Cocina: Cobros y Gastos Acumulados</h2>
+          <h2><i class="fas fa-receipt"></i> Reportes de Cocina: Cobros y Control de Comidas</h2>
           
           <div class="card">
-            <h3>Filtros de Auditoría y Acumulado por Cliente</h3>
+            <h3>Filtros de Auditoría y Consulta por Fecha</h3>
             <div class="card-grid" style="align-items: flex-end;">
               <div class="form-group">
                 <label>Filtrar por Cliente</label>
@@ -481,6 +480,7 @@
             </div>
           </div>
 
+          <!-- 1. VISTA GERENCIAL (RESUMEN ACUMULADO) -->
           <div class="card">
             <h3>Resumen Acumulado de Comidas Servidas (Vista Gerencial)</h3>
             <div class="table-responsive">
@@ -499,6 +499,31 @@
             </div>
           </div>
 
+          <!-- 2. DETALLE DIARIO CON FOTOS (FILTRADO POR FECHA) -->
+          <div class="card">
+            <h3><i class="fas fa-camera"></i> Detalle de Registros y Fotos (Día en Curso o Rango Seleccionado)</h3>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha / Hora</th>
+                    <th>Foto</th>
+                    <th>Cliente / Empresa</th>
+                    <th>Tipo</th>
+                    <th>Plato / Descripción</th>
+                    <th>Cant.</th>
+                    <th>P. Unit ($)</th>
+                    <th>Total ($)</th>
+                    <th>Estatus</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaReportesPlatosDetallados"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- GASTOS DE INSUMOS -->
           <div class="card">
             <div class="card-header">
               <h3><i class="fas fa-shopping-basket"></i> Gastos de Insumos Consumidos en Cocina (Control Supervisor)</h3>
@@ -524,12 +549,11 @@
           </div>
         </section>
 
-        <!-- MÓDULO SUPERVISOR: REPORTES PDF (DOS REPORTES INDEPENDIENTES) -->
+        <!-- MÓDULO SUPERVISOR: REPORTES PDF -->
         <section id="secPdfReportes" class="content-section hidden">
           <h2><i class="fas fa-file-pdf"></i> Generación de Reportes Diarios en PDF</h2>
           <div class="card-grid">
             
-            <!-- REPORTE 1: SOLO PARA EL CLIENTE -->
             <div class="card">
               <h3><i class="fas fa-id-card"></i> 1. Ficha Diaria para el Cliente</h3>
               <p class="description" style="margin-bottom: 15px;">Reporte exclusivo para enviar al cliente. Contiene <strong>únicamente</strong> la relación de platos servidos del día con sus fotos reales, descripción y costos sin IVA.</p>
@@ -552,7 +576,6 @@
               <button onclick="generarPDFSoloCliente()" class="btn btn-primary btn-block" style="margin-top: 15px;"><i class="fas fa-download"></i> Descargar Ficha para Cliente (PDF)</button>
             </div>
 
-            <!-- REPORTE 2: CONSOLIDADO INTERNO (AMBAS COSAS) -->
             <div class="card">
               <h3><i class="fas fa-clipboard-list"></i> 2. Reporte Interno Consolidado</h3>
               <p class="description" style="margin-bottom: 15px;">Reporte completo para control interno. Contiene <strong>ambas secciones</strong>: la ficha de platos servidos a los clientes <strong>más</strong> la relación exacta de los insumos y productos gastados en el día.</p>
@@ -568,7 +591,7 @@
           </div>
         </section>
 
-        <!-- MÓDULO SUPERVISOR: NÓMINA (BASE 20 DÍAS) -->
+        <!-- MÓDULO SUPERVISOR: NÓMINA -->
         <section id="secNominaSup" class="content-section hidden">
           <h2><i class="fas fa-money-bill-wave"></i> Liquidación de Nómina (Base 20 Días) y Control de Pagos</h2>
 
