@@ -42,6 +42,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (document.getElementById("filtroDesdeCobros")) document.getElementById("filtroDesdeCobros").value = hoyStr;
   if (document.getElementById("filtroHastaCobros")) document.getElementById("filtroHastaCobros").value = hoyStr;
 
+  if (document.getElementById("filtroDesdeCliente")) document.getElementById("filtroDesdeCliente").value = hoyStr;
+  if (document.getElementById("filtroHastaCliente")) document.getElementById("filtroHastaCliente").value = hoyStr;
+
   const mesInput = document.getElementById("filtroMesNomina");
   if (mesInput) {
     const hoy = new Date();
@@ -161,6 +164,10 @@ function setupEvents() {
   if (document.getElementById("filtroDesdeCobros")) document.getElementById("filtroDesdeCobros").addEventListener("change", renderReportesCocina);
   if (document.getElementById("filtroHastaCobros")) document.getElementById("filtroHastaCobros").addEventListener("change", renderReportesCocina);
 
+  if (document.getElementById("filtroDesdeCliente")) document.getElementById("filtroDesdeCliente").addEventListener("change", renderPortalCliente);
+  if (document.getElementById("filtroHastaCliente")) document.getElementById("filtroHastaCliente").addEventListener("change", renderPortalCliente);
+  if (document.getElementById("btnExportarClienteExcel")) document.getElementById("btnExportarClienteExcel").addEventListener("click", exportarExcelPortalCliente);
+
   if (document.getElementById("filtroFechaGastosSup")) document.getElementById("filtroFechaGastosSup").addEventListener("change", renderGastosInsumosSup);
 
   if (document.getElementById("filtroMesNomina")) document.getElementById("filtroMesNomina").addEventListener("change", renderNominaSup);
@@ -275,7 +282,6 @@ function renderAll() {
   }
 }
 
-// SUPABASE: USUARIOS
 async function cargarUsuariosBD() {
   const { data, error } = await db.from('usuarios').select('*');
   if (!error && data) state.usuariosSistema = data;
@@ -326,7 +332,6 @@ function renderUsuariosSup() {
   });
 }
 
-// INVENTARIO
 async function cargarInventarioBD() {
   const { data, error } = await db.from('productos').select('*');
   if (!error && data) {
@@ -456,7 +461,6 @@ function renderInventarioSup() {
   });
 }
 
-// CLIENTES Y CLAVES
 async function cargarClientesBD() {
   const { data, error } = await db.from('clientes').select('*');
   if (!error && data) state.clientes = data;
@@ -535,24 +539,42 @@ function renderClientesSup() {
   });
 }
 
-// PORTAL DEL CLIENTE (ESTADO DE CUENTA)
 function renderPortalCliente() {
-  const clienteActual = state.currentUser.nombre;
+  const clienteActual = state.currentUser ? state.currentUser.nombre : "";
   const tbody = document.getElementById("tablaPortalClienteDetalle");
   const statDeuda = document.getElementById("statClienteDeudaTotal");
-  if (!tbody || !statDeuda) return;
+  const statTotales = document.getElementById("statClientePlatosTotales");
+  const boxDiscriminado = document.getElementById("statClientePlatosDiscriminados");
+
+  const desdeFecha = document.getElementById("filtroDesdeCliente") ? document.getElementById("filtroDesdeCliente").value : "";
+  const hastaFecha = document.getElementById("filtroHastaCliente") ? document.getElementById("filtroHastaCliente").value : "";
+
+  if (!tbody || !statDeuda || !statTotales || !boxDiscriminado) return;
 
   tbody.innerHTML = "";
-  const comidasCliente = state.registroComidas.filter(c => c.cliente === clienteActual);
+  boxDiscriminado.innerHTML = "";
+
+  const comidasCliente = state.registroComidas.filter(c => {
+    const matchCliente = c.cliente === clienteActual;
+    const matchDesde = !desdeFecha || c.fecha_full >= desdeFecha;
+    const matchHasta = !hastaFecha || c.fecha_full <= hastaFecha;
+    return matchCliente && matchDesde && matchHasta;
+  });
 
   let deudaTotal = 0;
+  let totalPlatosRaciones = 0;
+  const discriminado = {};
 
   if (comidasCliente.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="description">No registra consumos facturados en el sistema.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="description">No hay consumos registrados para el rango de fechas seleccionado.</td></tr>`;
   } else {
     comidasCliente.forEach(item => {
       const precio = state.preciosPlatos[item.tipo] || 0;
       const totalNeto = precio * item.cantidad;
+      
+      totalPlatosRaciones += item.cantidad;
+      discriminado[item.tipo] = (discriminado[item.tipo] || 0) + item.cantidad;
+
       if (!item.pagado) {
         deudaTotal += totalNeto;
       }
@@ -560,9 +582,10 @@ function renderPortalCliente() {
       tbody.innerHTML += `
         <tr>
           <td>${item.fecha_full} ${item.hora || ''}</td>
+          <td><img src="${item.foto_url}" class="img-thumb" onclick="verFotoModal('${item.foto_url}')" alt="Foto Plato"/></td>
           <td><span class="badge">${item.tipo}</span></td>
-          <td>${item.nombre}</td>
-          <td>${item.cantidad}</td>
+          <td><strong>${item.nombre}</strong></td>
+          <td><strong>${item.cantidad}</strong></td>
           <td>$${precio.toFixed(2)}</td>
           <td><strong>$${totalNeto.toFixed(2)}</strong></td>
           <td>
@@ -576,9 +599,71 @@ function renderPortalCliente() {
   }
 
   statDeuda.innerText = `$${deudaTotal.toFixed(2)}`;
+  statTotales.innerText = `${totalPlatosRaciones} Platos Totales`;
+
+  Object.keys(discriminado).forEach(tipo => {
+    boxDiscriminado.innerHTML += `
+      <span class="badge" style="background-color: var(--color-secondary-light); color: var(--color-primary-dark); font-size: 0.85em;">
+        ${tipo}: <strong>${discriminado[tipo]}</strong>
+      </span>
+    `;
+  });
 }
 
-// PRECIOS PLATOS
+function exportarExcelPortalCliente() {
+  const clienteActual = state.currentUser ? state.currentUser.nombre : "";
+  const desdeFecha = document.getElementById("filtroDesdeCliente") ? document.getElementById("filtroDesdeCliente").value : "";
+  const hastaFecha = document.getElementById("filtroHastaCliente") ? document.getElementById("filtroHastaCliente").value : "";
+
+  const comidasCliente = state.registroComidas.filter(c => {
+    const matchCliente = c.cliente === clienteActual;
+    const matchDesde = !desdeFecha || c.fecha_full >= desdeFecha;
+    const matchHasta = !hastaFecha || c.fecha_full <= hastaFecha;
+    return matchCliente && matchDesde && matchHasta;
+  });
+
+  if (comidasCliente.length === 0) {
+    alert("No hay datos para exportar en el rango de fechas seleccionado.");
+    return;
+  }
+
+  const data = [
+    [`Estado de Cuenta - ${clienteActual}`],
+    [`Rango de fechas: ${desdeFecha || 'Inicio'} hasta ${hastaFecha || 'Hoy'}`],
+    [],
+    ["Fecha", "Hora", "Tipo de Plato", "Descripción", "Cantidad (Raciones)", "Precio Unit. ($)", "Total Neto ($)", "Estatus"]
+  ];
+
+  let totalRaciones = 0;
+  let totalUSD = 0;
+
+  comidasCliente.forEach(item => {
+    const precio = state.preciosPlatos[item.tipo] || 0;
+    const totalNeto = precio * item.cantidad;
+    totalRaciones += item.cantidad;
+    totalUSD += totalNeto;
+
+    data.push([
+      item.fecha_full,
+      item.hora || '',
+      item.tipo,
+      item.nombre,
+      item.cantidad,
+      precio,
+      totalNeto,
+      item.pagado ? "PAGADO" : "PENDIENTE"
+    ]);
+  });
+
+  data.push([]);
+  data.push(["TOTALES ACUMULADOS", "", "", "", totalRaciones, "", totalUSD, ""]);
+
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Estado_de_Cuenta");
+  XLSX.writeFile(wb, `Estado_Cuenta_${clienteActual.replace(/\s+/g, '_')}_${desdeFecha}_a_${hastaFecha}.xlsx`);
+}
+
 async function cargarPreciosPlatosBD() {
   const { data, error } = await db.from('precios_platos').select('*');
   if (!error && data && data.length > 0) {
@@ -651,7 +736,6 @@ function renderPreciosPlatos() {
   });
 }
 
-// COCINA E INSUMOS
 async function cargarConsumosBD() {
   const { data, error } = await db.from('consumos_diarios').select('*');
   if (!error && data) state.consumosDiarios = data;
@@ -705,7 +789,6 @@ async function descontarInsumo(e) {
   }
 }
 
-// REPORTE VISUAL DE COCINA
 function renderDiarioCocina() {
   const fechaInput = document.getElementById("filtroFechaDiario");
   const containerPlatos = document.getElementById("diarioPlatosContainer");
@@ -750,7 +833,6 @@ function descargarReporteImagenCocina() {
   });
 }
 
-// COMIDAS SERVIDAS
 async function cargarComidasBD() {
   const { data, error } = await db.from('comidas_servidas').select('*');
   if (!error && data) state.registroComidas = data;
@@ -1128,7 +1210,6 @@ function renderGastosInsumosSup() {
   }
 }
 
-// EXPORTAR EXCEL DETALLADO (INCLUYE FECHA, HORA, CLIENTE, TIPO, DESCRIPCIÓN, CANTIDAD, PRECIO Y TOTAL)
 function exportarComidasExcel() {
   const filtroCliente = document.getElementById("filtroClienteCobros") ? document.getElementById("filtroClienteCobros").value : "";
   const desdeFecha = document.getElementById("filtroDesdeCobros") ? document.getElementById("filtroDesdeCobros").value : "";
@@ -1168,7 +1249,6 @@ function exportarComidasExcel() {
   XLSX.writeFile(wb, "Reporte_Detallado_Comidas_Servidas.xlsx");
 }
 
-// REPORTE PDF CLIENTE
 async function generarPDFSoloCliente() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('p', 'mm', 'a4');
@@ -1278,7 +1358,6 @@ async function generarPDFSoloCliente() {
   doc.save(`Ficha_Cliente_${clienteSel.replace(/\s+/g, '_')}_${fechaSel}.pdf`);
 }
 
-// REPORTE 2: CONSOLIDADO INTERNO
 async function generarPDFConsolidadoInterno() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('p', 'mm', 'a4');
@@ -1417,7 +1496,6 @@ async function generarPDFConsolidadoInterno() {
   doc.save(`Reporte_Consolidado_Interno_${fechaSel}.pdf`);
 }
 
-// NÓMINA, ASISTENCIA Y PAGOS
 async function cargarEmpleadosBD() {
   const { data, error } = await db.from('empleados').select('*');
   if (!error && data) {
