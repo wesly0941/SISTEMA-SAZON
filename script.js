@@ -164,6 +164,7 @@ function setupEvents() {
   if (document.getElementById("filtroDesdeCobros")) document.getElementById("filtroDesdeCobros").addEventListener("change", renderReportesCocina);
   if (document.getElementById("filtroHastaCobros")) document.getElementById("filtroHastaCobros").addEventListener("change", renderReportesCocina);
 
+  // Filtros y botón de Excel del Portal del Cliente
   if (document.getElementById("filtroDesdeCliente")) document.getElementById("filtroDesdeCliente").addEventListener("change", renderPortalCliente);
   if (document.getElementById("filtroHastaCliente")) document.getElementById("filtroHastaCliente").addEventListener("change", renderPortalCliente);
   if (document.getElementById("btnExportarClienteExcel")) document.getElementById("btnExportarClienteExcel").addEventListener("click", exportarExcelPortalCliente);
@@ -539,6 +540,9 @@ function renderClientesSup() {
   });
 }
 
+// =========================================================================
+// MÓDULO PORTAL DEL CLIENTE (FILTROS, FOTOS Y CONTADORES DISCRIMINADOS)
+// =========================================================================
 function renderPortalCliente() {
   const clienteActual = state.currentUser ? state.currentUser.nombre : "";
   const tbody = document.getElementById("tablaPortalClienteDetalle");
@@ -554,6 +558,7 @@ function renderPortalCliente() {
   tbody.innerHTML = "";
   boxDiscriminado.innerHTML = "";
 
+  // Filtrado estricto por cliente logueado y rango de fechas seleccionadas
   const comidasCliente = state.registroComidas.filter(c => {
     const matchCliente = c.cliente === clienteActual;
     const matchDesde = !desdeFecha || c.fecha_full >= desdeFecha;
@@ -572,6 +577,7 @@ function renderPortalCliente() {
       const precio = state.preciosPlatos[item.tipo] || 0;
       const totalNeto = precio * item.cantidad;
       
+      // Conteo general y discriminado por tipo de plato (ej. Plato Comedor, Cena Comedor)
       totalPlatosRaciones += item.cantidad;
       discriminado[item.tipo] = (discriminado[item.tipo] || 0) + item.cantidad;
 
@@ -579,6 +585,7 @@ function renderPortalCliente() {
         deudaTotal += totalNeto;
       }
 
+      // Renderizado correcto de la miniatura de la foto y datos en la tabla
       tbody.innerHTML += `
         <tr>
           <td>${item.fecha_full} ${item.hora || ''}</td>
@@ -598,9 +605,11 @@ function renderPortalCliente() {
     });
   }
 
+  // Actualizar tarjetas de deuda y contadores superiores
   statDeuda.innerText = `$${deudaTotal.toFixed(2)}`;
   statTotales.innerText = `${totalPlatosRaciones} Platos Totales`;
 
+  // Generar etiquetas dinámicas discriminadas por cada tipo de plato existente
   Object.keys(discriminado).forEach(tipo => {
     boxDiscriminado.innerHTML += `
       <span class="badge" style="background-color: var(--color-secondary-light); color: var(--color-primary-dark); font-size: 0.85em;">
