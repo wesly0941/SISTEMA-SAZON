@@ -65,6 +65,7 @@ async function cargarTodoDesdeSupabase() {
     cargarComidasBD(),
     cargarConsumosBD()
   ]);
+  populateLoginClienteDropdown();
   renderAll();
 }
 
@@ -82,6 +83,22 @@ function setupEvents() {
         login(nombreRol, usuarioEncontrado.rol);
       } else {
         alert("Usuario o contraseña incorrectos.");
+      }
+    });
+  }
+
+  if (document.getElementById("loginClienteForm")) {
+    document.getElementById("loginClienteForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const clienteNombre = document.getElementById("loginClienteSelect").value;
+      const claveIngresada = document.getElementById("loginClientePass").value.trim();
+
+      const clienteObj = state.clientes.find(c => c.nombre === clienteNombre);
+
+      if (clienteObj && clienteObj.clave_portal === claveIngresada) {
+        loginCliente(clienteObj.nombre);
+      } else {
+        alert("Clave de acceso incorrecta para este cliente.");
       }
     });
   }
@@ -172,25 +189,66 @@ function setupEvents() {
   }
 }
 
+function switchLoginMode(modo) {
+  const formAdmin = document.getElementById("loginForm");
+  const formCliente = document.getElementById("loginClienteForm");
+  const btnAdmin = document.getElementById("tabLoginAdmin");
+  const btnCliente = document.getElementById("tabLoginCliente");
+
+  if (modo === 'admin') {
+    formAdmin.classList.remove("hidden");
+    formCliente.classList.add("hidden");
+    btnAdmin.classList.add("btn-primary");
+    btnAdmin.classList.remove("btn-secondary");
+    btnCliente.classList.add("btn-secondary");
+    btnCliente.classList.remove("btn-primary");
+  } else {
+    formAdmin.classList.add("hidden");
+    formCliente.classList.remove("hidden");
+    btnCliente.classList.add("btn-primary");
+    btnCliente.classList.remove("btn-secondary");
+    btnAdmin.classList.add("btn-secondary");
+    btnAdmin.classList.remove("btn-primary");
+  }
+}
+
 function login(nombreRol, tipoRol) {
   state.currentUser = { nombre: nombreRol, role: tipoRol };
   document.getElementById("loginView").classList.add("hidden");
   document.getElementById("appView").classList.remove("hidden");
   document.getElementById("userBadge").innerText = nombreRol;
 
+  document.getElementById("menuCocina").classList.add("hidden");
+  document.getElementById("menuSupervisor").classList.add("hidden");
+  document.getElementById("menuClientePortal").classList.add("hidden");
+
   if (tipoRol === "cocina") {
     document.getElementById("menuCocina").classList.remove("hidden");
-    document.getElementById("menuSupervisor").classList.add("hidden");
     const firstBtn = document.querySelector('#menuCocina .nav-btn');
     if (firstBtn) firstBtn.click();
   } else {
     document.getElementById("menuSupervisor").classList.remove("hidden");
-    document.getElementById("menuCocina").classList.add("hidden");
     const firstBtn = document.querySelector('#menuSupervisor .nav-btn');
     if (firstBtn) firstBtn.click();
   }
 
   renderAll();
+}
+
+function loginCliente(nombreCliente) {
+  state.currentUser = { nombre: nombreCliente, role: 'cliente' };
+  document.getElementById("loginView").classList.add("hidden");
+  document.getElementById("appView").classList.remove("hidden");
+  document.getElementById("userBadge").innerText = `Cliente: ${nombreCliente}`;
+
+  document.getElementById("menuCocina").classList.add("hidden");
+  document.getElementById("menuSupervisor").classList.add("hidden");
+  document.getElementById("menuClientePortal").classList.remove("hidden");
+
+  const firstBtn = document.querySelector('#menuClientePortal .nav-btn');
+  if (firstBtn) firstBtn.click();
+
+  renderPortalCliente();
 }
 
 function renderAll() {
@@ -212,6 +270,9 @@ function renderAll() {
   renderNominaSup();
   renderAsistenciaDiaSup();
   renderDashboardSup();
+  if (state.currentUser && state.currentUser.role === 'cliente') {
+    renderPortalCliente();
+  }
 }
 
 // SUPABASE: USUARIOS
@@ -395,7 +456,7 @@ function renderInventarioSup() {
   });
 }
 
-// CLIENTES
+// CLIENTES Y CLAVES
 async function cargarClientesBD() {
   const { data, error } = await db.from('clientes').select('*');
   if (!error && data) state.clientes = data;
@@ -417,16 +478,30 @@ function populateClientesDropdown() {
   });
 }
 
+function populateLoginClienteDropdown() {
+  const selLogin = document.getElementById("loginClienteSelect");
+  if (!selLogin) return;
+  selLogin.innerHTML = `<option value="">Seleccione su empresa...</option>`;
+  state.clientes.forEach(c => {
+    selLogin.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`;
+  });
+}
+
 async function crearNuevoCliente(e) {
   e.preventDefault();
   const nombre = document.getElementById("nombreClienteInput").value.trim();
-  if (nombre) {
-    const { error } = await db.from('clientes').insert([{ nombre }]);
+  const clave_portal = document.getElementById("claveClienteInput").value.trim();
+
+  if (nombre && clave_portal) {
+    const { error } = await db.from('clientes').upsert([{ nombre, clave_portal }], { onConflict: 'nombre' });
     if (!error) {
-      alert("Cliente guardado.");
+      alert("Cliente y clave de portal guardados exitosamente.");
       document.getElementById("formNuevoCliente").reset();
       await cargarClientesBD();
+      populateLoginClienteDropdown();
       renderAll();
+    } else {
+      alert("Error al guardar cliente: " + error.message);
     }
   }
 }
@@ -436,6 +511,7 @@ async function eliminarCliente(id) {
     const { error } = await db.from('clientes').delete().eq('id', id);
     if (!error) {
       await cargarClientesBD();
+      populateLoginClienteDropdown();
       renderAll();
     }
   }
@@ -450,12 +526,56 @@ function renderClientesSup() {
       <tr>
         <td>#${c.id}</td>
         <td><strong>${c.nombre}</strong></td>
+        <td><code>${c.clave_portal || 'No asignada'}</code></td>
         <td>
           <button class="btn btn-sm btn-danger" onclick="eliminarCliente(${c.id})"><i class="fas fa-trash"></i></button>
         </td>
       </tr>
     `;
   });
+}
+
+// PORTAL DEL CLIENTE (ESTADO DE CUENTA)
+function renderPortalCliente() {
+  const clienteActual = state.currentUser.nombre;
+  const tbody = document.getElementById("tablaPortalClienteDetalle");
+  const statDeuda = document.getElementById("statClienteDeudaTotal");
+  if (!tbody || !statDeuda) return;
+
+  tbody.innerHTML = "";
+  const comidasCliente = state.registroComidas.filter(c => c.cliente === clienteActual);
+
+  let deudaTotal = 0;
+
+  if (comidasCliente.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="description">No registra consumos facturados en el sistema.</td></tr>`;
+  } else {
+    comidasCliente.forEach(item => {
+      const precio = state.preciosPlatos[item.tipo] || 0;
+      const totalNeto = precio * item.cantidad;
+      if (!item.pagado) {
+        deudaTotal += totalNeto;
+      }
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${item.fecha_full} ${item.hora || ''}</td>
+          <td><span class="badge">${item.tipo}</span></td>
+          <td>${item.nombre}</td>
+          <td>${item.cantidad}</td>
+          <td>$${precio.toFixed(2)}</td>
+          <td><strong>$${totalNeto.toFixed(2)}</strong></td>
+          <td>
+            <span class="${item.pagado ? 'badge-paid' : 'badge-pending'}">
+              ${item.pagado ? 'PAGADO' : 'PENDIENTE'}
+            </span>
+          </td>
+        </tr>
+      `;
+    });
+  }
+
+  statDeuda.innerText = `$${deudaTotal.toFixed(2)}`;
 }
 
 // PRECIOS PLATOS
@@ -585,7 +705,7 @@ async function descontarInsumo(e) {
   }
 }
 
-// REPORTE VISUAL DE COCINA (SOLO COMIDAS, SIN RUBROS)
+// REPORTE VISUAL DE COCINA
 function renderDiarioCocina() {
   const fechaInput = document.getElementById("filtroFechaDiario");
   const containerPlatos = document.getElementById("diarioPlatosContainer");
@@ -692,7 +812,6 @@ async function guardarPlatoDia(e) {
   }
 }
 
-// MODIFICAR / ELIMINAR COMIDA (SUPERVISOR)
 async function eliminarComidaSup(id) {
   if (confirm("¿Desea eliminar este registro de plato servido?")) {
     const { error } = await db.from('comidas_servidas').delete().eq('id', id);
@@ -742,7 +861,6 @@ async function guardarEdicionComidaSup(e) {
   }
 }
 
-// MODIFICAR / ELIMINAR GASTO DE INSUMO CON REVERSIÓN EN INVENTARIO (SUPERVISOR)
 async function eliminarGastoInsumoSup(id) {
   if (confirm("¿Desea eliminar este gasto de insumo? La cantidad consumida será devuelta al inventario actual.")) {
     const gasto = state.consumosDiarios.find(c => c.id === id);
@@ -889,7 +1007,6 @@ function cerrarModalFoto() {
   if (modal) modal.classList.add("hidden");
 }
 
-// RENDERIZADO EN SUPERVISIÓN: TABLA 1 (RESUMEN ACUMULADO) + TABLA 2 (DETALLE CON FOTOS POR RANGO/DÍA)
 function renderReportesCocina() {
   const tbodyAcumulado = document.getElementById("tablaReportesPlatosAcumulados");
   const tbodyDetalle = document.getElementById("tablaReportesPlatosDetallados");
@@ -903,7 +1020,6 @@ function renderReportesCocina() {
   tbodyAcumulado.innerHTML = "";
   tbodyDetalle.innerHTML = "";
 
-  // Filtrar registros por cliente y fechas seleccionadas
   const filtrados = state.registroComidas.filter(item => {
     const matchCliente = !filtroCliente || item.cliente === filtroCliente;
     const matchDesde = !desdeFecha || item.fecha_full >= desdeFecha;
@@ -911,7 +1027,6 @@ function renderReportesCocina() {
     return matchCliente && matchDesde && matchHasta;
   });
 
-  // 1. DIBUJAR TABLA GERENCIAL (RESUMEN ACUMULADO)
   const acumuladoMap = {};
   filtrados.forEach(item => {
     const clave = `${item.cliente}___${item.tipo}`;
@@ -946,7 +1061,6 @@ function renderReportesCocina() {
     });
   }
 
-  // 2. DIBUJAR TABLA DETALLADA CON FOTOS Y EDITAR/ELIMINAR
   if (filtrados.length === 0) {
     tbodyDetalle.innerHTML = `<tr><td colspan="10" class="description">No existen registros detallados para la fecha/rango seleccionado.</td></tr>`;
   } else {
@@ -1014,7 +1128,47 @@ function renderGastosInsumosSup() {
   }
 }
 
-// REPORTE 1: SOLO PARA EL CLIENTE
+// EXPORTAR EXCEL DETALLADO (INCLUYE FECHA, HORA, CLIENTE, TIPO, DESCRIPCIÓN, CANTIDAD, PRECIO Y TOTAL)
+function exportarComidasExcel() {
+  const filtroCliente = document.getElementById("filtroClienteCobros") ? document.getElementById("filtroClienteCobros").value : "";
+  const desdeFecha = document.getElementById("filtroDesdeCobros") ? document.getElementById("filtroDesdeCobros").value : "";
+  const hastaFecha = document.getElementById("filtroHastaCobros") ? document.getElementById("filtroHastaCobros").value : "";
+
+  const data = [
+    ["Fecha", "Hora", "Cliente / Empresa", "Tipo de Plato", "Descripción", "Cantidad Raciones", "Precio Unit. ($)", "Total Neto ($)", "Estatus Pago"]
+  ];
+
+  const filtrados = state.registroComidas.filter(item => {
+    const matchCliente = !filtroCliente || item.cliente === filtroCliente;
+    const matchDesde = !desdeFecha || item.fecha_full >= desdeFecha;
+    const matchHasta = !hastaFecha || item.fecha_full <= hastaFecha;
+    return matchCliente && matchDesde && matchHasta;
+  });
+
+  filtrados.forEach(item => {
+    const precio = state.preciosPlatos[item.tipo] || 0;
+    const totalNeto = precio * item.cantidad;
+    const estatus = item.pagado ? "PAGADO" : "PENDIENTE";
+    data.push([
+      item.fecha_full,
+      item.hora || '',
+      item.cliente,
+      item.tipo,
+      item.nombre,
+      item.cantidad,
+      precio,
+      totalNeto,
+      estatus
+    ]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Detalle_Comidas");
+  XLSX.writeFile(wb, "Reporte_Detallado_Comidas_Servidas.xlsx");
+}
+
+// REPORTE PDF CLIENTE
 async function generarPDFSoloCliente() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('p', 'mm', 'a4');
@@ -1080,17 +1234,13 @@ async function generarPDFSoloCliente() {
           const formatoImg = item.foto_url.includes("image/png") ? "PNG" : "JPEG";
           doc.addImage(item.foto_url, formatoImg, 18, y + 4, 32, 32);
         } catch (e) {
-          doc.setDrawColor(200, 200, 200);
           doc.rect(18, y + 4, 32, 32);
           doc.setFontSize(8);
-          doc.setTextColor(100, 100, 100);
           doc.text("Sin Foto", 25, y + 21);
         }
       } else {
-        doc.setDrawColor(200, 200, 200);
         doc.rect(18, y + 4, 32, 32);
         doc.setFontSize(8);
-        doc.setTextColor(100, 100, 100);
         doc.text("Foto N/A", 25, y + 21);
       }
 
@@ -1125,8 +1275,7 @@ async function generarPDFSoloCliente() {
     doc.text(`TOTAL FACTURADO (SIN IVA): $${granTotalUSD.toFixed(2)} USD`, 18, y + 7);
   }
 
-  const nombreArchivo = clienteSel ? `Ficha_Cliente_${clienteSel.replace(/\s+/g, '_')}_${fechaSel}.pdf` : `Ficha_Comidas_${fechaSel}.pdf`;
-  doc.save(nombreArchivo);
+  doc.save(`Ficha_Cliente_${clienteSel.replace(/\s+/g, '_')}_${fechaSel}.pdf`);
 }
 
 // REPORTE 2: CONSOLIDADO INTERNO
@@ -1425,7 +1574,6 @@ async function marcarAsistencia(fecha, cedula) {
   }
 }
 
-// NÓMINA CALCULADA SOBRE BASE DE 20 DÍAS
 function renderNominaSup() {
   const tbody = document.getElementById("tablaCalculoNomina");
   const filtroMes = document.getElementById("filtroMesNomina");
@@ -1636,42 +1784,6 @@ async function cargarInventarioExcel(e) {
     }
   };
   reader.readAsArrayBuffer(file);
-}
-
-function exportarComidasExcel() {
-  const filtroCliente = document.getElementById("filtroClienteCobros") ? document.getElementById("filtroClienteCobros").value : "";
-  const desdeFecha = document.getElementById("filtroDesdeCobros") ? document.getElementById("filtroDesdeCobros").value : "";
-  const hastaFecha = document.getElementById("filtroHastaCobros") ? document.getElementById("filtroHastaCobros").value : "";
-
-  const data = [
-    ["Cliente / Empresa", "Tipo / Plato", "Total Raciones Acumuladas", "Precio Unit. ($)", "Total Acumulado ($)"]
-  ];
-
-  const filtrados = state.registroComidas.filter(item => {
-    const matchCliente = !filtroCliente || item.cliente === filtroCliente;
-    const matchDesde = !desdeFecha || item.fecha_full >= desdeFecha;
-    const matchHasta = !hastaFecha || item.fecha_full <= hastaFecha;
-    return matchCliente && matchDesde && matchHasta;
-  });
-
-  const acumuladoMap = {};
-  filtrados.forEach(item => {
-    const clave = `${item.cliente}___${item.tipo}`;
-    if (!acumuladoMap[clave]) {
-      acumuladoMap[clave] = { cliente: item.cliente, tipo: item.tipo, totalCantidad: 0 };
-    }
-    acumuladoMap[clave].totalCantidad += item.cantidad;
-  });
-
-  Object.values(acumuladoMap).forEach(grupo => {
-    const precio = state.preciosPlatos[grupo.tipo] || 0;
-    data.push([grupo.cliente, grupo.tipo, grupo.totalCantidad, precio, precio * grupo.totalCantidad]);
-  });
-
-  const ws = XLSX.utils.aoa_to_sheet(data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Comidas_Acumuladas");
-  XLSX.writeFile(wb, "Acumulado_Comidas_Clientes.xlsx");
 }
 
 function exportarNominaExcel() {
