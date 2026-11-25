@@ -20,6 +20,7 @@ const state = {
   tasaCambio: 36.50,
   preciosPlatos: { "Ejecutivo": 3.50, "Especial": 5.00, "Sopa": 2.00, "Postre": 1.50 },
   clientes: [],
+  bienesClientes: [],
   inventario: [],
   registroComidas: [],
   consumosDiarios: [],
@@ -32,6 +33,7 @@ const state = {
 document.addEventListener("DOMContentLoaded", async () => {
   const hoyStr = new Date().toISOString().split("T")[0];
   
+  if (document.getElementById("fechaPlatoCocina")) document.getElementById("fechaPlatoCocina").value = hoyStr;
   if (document.getElementById("fechaAsistenciaCocina")) document.getElementById("fechaAsistenciaCocina").value = hoyStr;
   if (document.getElementById("filtroFechaDiario")) document.getElementById("filtroFechaDiario").value = hoyStr;
   if (document.getElementById("filtroFechaAsistenciaSup")) document.getElementById("filtroFechaAsistenciaSup").value = hoyStr;
@@ -52,6 +54,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     mesInput.value = `${hoy.getFullYear()}-${mm}`;
   }
 
+  // Seleccionar quincena actual por defecto
+  const quincenaInput = document.getElementById("filtroQuincenaNomina");
+  if (quincenaInput) {
+    const diaActual = new Date().getDate();
+    quincenaInput.value = diaActual <= 15 ? "Q1" : "Q2";
+  }
+
   setupEvents();
   await cargarTodoDesdeSupabase();
 });
@@ -60,6 +69,7 @@ async function cargarTodoDesdeSupabase() {
   await Promise.all([
     cargarUsuariosBD(),
     cargarClientesBD(),
+    cargarBienesClientesBD(),
     cargarInventarioBD(),
     cargarPreciosPlatosBD(),
     cargarEmpleadosBD(),
@@ -144,10 +154,14 @@ function setupEvents() {
   if (document.getElementById("formNuevoUsuario")) document.getElementById("formNuevoUsuario").addEventListener("submit", crearNuevoUsuarioSistema);
   
   if (document.getElementById("formPlatoDia")) document.getElementById("formPlatoDia").addEventListener("submit", guardarPlatoDia);
+  if (document.getElementById("fechaPlatoCocina")) document.getElementById("fechaPlatoCocina").addEventListener("change", renderPlatosHoy);
   if (document.getElementById("formGastoInsumo")) document.getElementById("formGastoInsumo").addEventListener("submit", descontarInsumo);
   if (document.getElementById("selectRubroInsumo")) document.getElementById("selectRubroInsumo").addEventListener("change", populateInsumosDropdownCocina);
 
   if (document.getElementById("formNuevoCliente")) document.getElementById("formNuevoCliente").addEventListener("submit", crearNuevoCliente);
+  if (document.getElementById("formNuevoBienCliente")) document.getElementById("formNuevoBienCliente").addEventListener("submit", guardarBienClienteSup);
+  if (document.getElementById("filtroClienteBienesSup")) document.getElementById("filtroClienteBienesSup").addEventListener("change", renderBienesClientesSup);
+
   if (document.getElementById("searchInsumoInput")) document.getElementById("searchInsumoInput").addEventListener("input", renderInventarioSup);
   if (document.getElementById("filterRubroInventario")) document.getElementById("filterRubroInventario").addEventListener("change", renderInventarioSup);
 
@@ -159,12 +173,12 @@ function setupEvents() {
   if (document.getElementById("editGastoRubro")) document.getElementById("editGastoRubro").addEventListener("change", populateProductosEdicionGasto);
 
   if (document.getElementById("filtroFechaDiario")) document.getElementById("filtroFechaDiario").addEventListener("change", renderDiarioCocina);
+  if (document.getElementById("fechaAsistenciaCocina")) document.getElementById("fechaAsistenciaCocina").addEventListener("change", renderNominaCocina);
   
   if (document.getElementById("filtroClienteCobros")) document.getElementById("filtroClienteCobros").addEventListener("change", renderReportesCocina);
   if (document.getElementById("filtroDesdeCobros")) document.getElementById("filtroDesdeCobros").addEventListener("change", renderReportesCocina);
   if (document.getElementById("filtroHastaCobros")) document.getElementById("filtroHastaCobros").addEventListener("change", renderReportesCocina);
 
-  // Filtros y botón de Excel del Portal del Cliente
   if (document.getElementById("filtroDesdeCliente")) document.getElementById("filtroDesdeCliente").addEventListener("change", renderPortalCliente);
   if (document.getElementById("filtroHastaCliente")) document.getElementById("filtroHastaCliente").addEventListener("change", renderPortalCliente);
   if (document.getElementById("btnExportarClienteExcel")) document.getElementById("btnExportarClienteExcel").addEventListener("click", exportarExcelPortalCliente);
@@ -257,6 +271,7 @@ function loginCliente(nombreCliente) {
   if (firstBtn) firstBtn.click();
 
   renderPortalCliente();
+  renderPortalClienteBienes();
 }
 
 function renderAll() {
@@ -269,6 +284,7 @@ function renderAll() {
   renderNominaCocina();
   renderDiarioCocina();
   renderClientesSup();
+  renderBienesClientesSup();
   renderUsuariosSup();
   renderInventarioSup();
   renderPreciosPlatos();
@@ -280,9 +296,13 @@ function renderAll() {
   renderDashboardSup();
   if (state.currentUser && state.currentUser.role === 'cliente') {
     renderPortalCliente();
+    renderPortalClienteBienes();
   }
 }
 
+// =========================================================================
+// USUARIOS DEL SISTEMA
+// =========================================================================
 async function cargarUsuariosBD() {
   const { data, error } = await db.from('usuarios').select('*');
   if (!error && data) state.usuariosSistema = data;
@@ -333,6 +353,9 @@ function renderUsuariosSup() {
   });
 }
 
+// =========================================================================
+// INVENTARIO
+// =========================================================================
 async function cargarInventarioBD() {
   const { data, error } = await db.from('productos').select('*');
   if (!error && data) {
@@ -462,9 +485,17 @@ function renderInventarioSup() {
   });
 }
 
+// =========================================================================
+// CLIENTES Y BIENES PROPIEDAD DE EL SAZÓN EN CLIENTES
+// =========================================================================
 async function cargarClientesBD() {
   const { data, error } = await db.from('clientes').select('*');
   if (!error && data) state.clientes = data;
+}
+
+async function cargarBienesClientesBD() {
+  const { data, error } = await db.from('bienes_clientes').select('*').order('id', { ascending: false });
+  if (!error && data) state.bienesClientes = data;
 }
 
 function populateClientesDropdown() {
@@ -472,11 +503,14 @@ function populateClientesDropdown() {
   const selReporte = document.getElementById("filtroClienteCobros");
   const selPdf = document.getElementById("pdfSelectCliente");
   const editComidaCliente = document.getElementById("editComidaCliente");
+  const bienClienteSel = document.getElementById("bienClienteSelect");
+  const filtroClienteBienes = document.getElementById("filtroClienteBienesSup");
 
-  [selCocina, selReporte, selPdf, editComidaCliente].forEach((sel, idx) => {
+  [selCocina, selReporte, selPdf, editComidaCliente, bienClienteSel, filtroClienteBienes].forEach((sel, idx) => {
     if (sel) {
       const act = sel.value;
-      sel.innerHTML = idx === 1 || idx === 2 ? `<option value="">TODOS LOS CLIENTES</option>` : `<option value="">Seleccione cliente...</option>`;
+      const esFiltroTodos = (idx === 1 || idx === 2 || idx === 5);
+      sel.innerHTML = esFiltroTodos ? `<option value="">TODOS LOS CLIENTES</option>` : `<option value="">Seleccione cliente...</option>`;
       state.clientes.forEach(c => { sel.innerHTML += `<option value="${c.nombre}">${c.nombre}</option>`; });
       if (act) sel.value = act;
     }
@@ -540,8 +574,72 @@ function renderClientesSup() {
   });
 }
 
+async function guardarBienClienteSup(e) {
+  e.preventDefault();
+  const cliente = document.getElementById("bienClienteSelect").value;
+  const nombre_bien = document.getElementById("bienNombreInput").value.trim();
+  const codigo_serial = document.getElementById("bienCodigoInput").value.trim() || "S/N";
+  const cantidad = parseInt(document.getElementById("bienCantidadInput").value) || 1;
+  const estado = document.getElementById("bienEstadoSelect").value;
+  const observacion = document.getElementById("bienObsInput").value.trim();
+  const fecha_asignacion = new Date().toISOString().split("T")[0];
+
+  const { error } = await db.from('bienes_clientes').insert([{
+    cliente, nombre_bien, codigo_serial, cantidad, estado, observacion, fecha_asignacion
+  }]);
+
+  if (!error) {
+    alert("Bien asignado al cliente correctamente.");
+    document.getElementById("formNuevoBienCliente").reset();
+    await cargarBienesClientesBD();
+    renderAll();
+  } else {
+    alert("Error al guardar bien: " + error.message);
+  }
+}
+
+async function eliminarBienClienteSup(id) {
+  if (confirm("¿Eliminar este bien del listado del cliente?")) {
+    const { error } = await db.from('bienes_clientes').delete().eq('id', id);
+    if (!error) {
+      await cargarBienesClientesBD();
+      renderAll();
+    }
+  }
+}
+
+function renderBienesClientesSup() {
+  const tbody = document.getElementById("tablaBienesClientesSup");
+  const filtroCliente = document.getElementById("filtroClienteBienesSup") ? document.getElementById("filtroClienteBienesSup").value : "";
+  if (!tbody) return;
+
+  tbody.innerHTML = "";
+  const filtrados = state.bienesClientes.filter(b => !filtroCliente || b.cliente === filtroCliente);
+
+  if (filtrados.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="description">No hay bienes registrados para mostrar.</td></tr>`;
+    return;
+  }
+
+  filtrados.forEach(b => {
+    tbody.innerHTML += `
+      <tr>
+        <td><strong>${b.cliente}</strong></td>
+        <td>${b.nombre_bien}</td>
+        <td><code>${b.codigo_serial || 'S/N'}</code></td>
+        <td><strong>${b.cantidad}</strong></td>
+        <td><span class="badge">${b.estado}</span></td>
+        <td><small>${b.observacion || '-'}</small></td>
+        <td>
+          <button class="btn btn-sm btn-danger" onclick="eliminarBienClienteSup(${b.id})"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
 // =========================================================================
-// MÓDULO PORTAL DEL CLIENTE (FILTROS, FOTOS Y CONTADORES DISCRIMINADOS)
+// MÓDULO PORTAL DEL CLIENTE (ESTADO DE CUENTA Y BIENES)
 // =========================================================================
 function renderPortalCliente() {
   const clienteActual = state.currentUser ? state.currentUser.nombre : "";
@@ -558,7 +656,6 @@ function renderPortalCliente() {
   tbody.innerHTML = "";
   boxDiscriminado.innerHTML = "";
 
-  // Filtrado estricto por cliente logueado y rango de fechas seleccionadas
   const comidasCliente = state.registroComidas.filter(c => {
     const matchCliente = c.cliente === clienteActual;
     const matchDesde = !desdeFecha || c.fecha_full >= desdeFecha;
@@ -577,7 +674,6 @@ function renderPortalCliente() {
       const precio = state.preciosPlatos[item.tipo] || 0;
       const totalNeto = precio * item.cantidad;
       
-      // Conteo general y discriminado por tipo de plato (ej. Plato Comedor, Cena Comedor)
       totalPlatosRaciones += item.cantidad;
       discriminado[item.tipo] = (discriminado[item.tipo] || 0) + item.cantidad;
 
@@ -585,7 +681,6 @@ function renderPortalCliente() {
         deudaTotal += totalNeto;
       }
 
-      // Renderizado correcto de la miniatura de la foto y datos en la tabla
       tbody.innerHTML += `
         <tr>
           <td>${item.fecha_full} ${item.hora || ''}</td>
@@ -605,16 +700,41 @@ function renderPortalCliente() {
     });
   }
 
-  // Actualizar tarjetas de deuda y contadores superiores
   statDeuda.innerText = `$${deudaTotal.toFixed(2)}`;
   statTotales.innerText = `${totalPlatosRaciones} Platos Totales`;
 
-  // Generar etiquetas dinámicas discriminadas por cada tipo de plato existente
   Object.keys(discriminado).forEach(tipo => {
     boxDiscriminado.innerHTML += `
       <span class="badge" style="background-color: var(--color-secondary-light); color: var(--color-primary-dark); font-size: 0.85em;">
         ${tipo}: <strong>${discriminado[tipo]}</strong>
       </span>
+    `;
+  });
+}
+
+function renderPortalClienteBienes() {
+  const clienteActual = state.currentUser ? state.currentUser.nombre : "";
+  const tbody = document.getElementById("tablaPortalClienteBienes");
+  if (!tbody) return;
+
+  tbody.innerHTML = "";
+  const bienes = state.bienesClientes.filter(b => b.cliente === clienteActual);
+
+  if (bienes.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="description">Actualmente no posee equipos ni bienes de El Sazón de Helem asignados en resguardo.</td></tr>`;
+    return;
+  }
+
+  bienes.forEach(b => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${b.fecha_asignacion || '-'}</td>
+        <td><strong>${b.nombre_bien}</strong></td>
+        <td><code>${b.codigo_serial || 'S/N'}</code></td>
+        <td><strong>${b.cantidad}</strong></td>
+        <td><span class="badge">${b.estado}</span></td>
+        <td>${b.observacion || '-'}</td>
+      </tr>
     `;
   });
 }
@@ -673,6 +793,9 @@ function exportarExcelPortalCliente() {
   XLSX.writeFile(wb, `Estado_Cuenta_${clienteActual.replace(/\s+/g, '_')}_${desdeFecha}_a_${hastaFecha}.xlsx`);
 }
 
+// =========================================================================
+// PRECIOS DE PLATOS
+// =========================================================================
 async function cargarPreciosPlatosBD() {
   const { data, error } = await db.from('precios_platos').select('*');
   if (!error && data && data.length > 0) {
@@ -745,6 +868,9 @@ function renderPreciosPlatos() {
   });
 }
 
+// =========================================================================
+// CONSUMOS E INSUMOS
+// =========================================================================
 async function cargarConsumosBD() {
   const { data, error } = await db.from('consumos_diarios').select('*');
   if (!error && data) state.consumosDiarios = data;
@@ -842,6 +968,9 @@ function descargarReporteImagenCocina() {
   });
 }
 
+// =========================================================================
+// PLATOS SERVIDOS (CARGA CON FECHA COCINA Y EDICIÓN CON FECHA SUPERVISOR)
+// =========================================================================
 async function cargarComidasBD() {
   const { data, error } = await db.from('comidas_servidas').select('*');
   if (!error && data) state.registroComidas = data;
@@ -866,6 +995,7 @@ function populateTiposPlatosDropdown() {
 
 async function guardarPlatoDia(e) {
   e.preventDefault();
+  const fechaSeleccionada = document.getElementById("fechaPlatoCocina").value || new Date().toISOString().split("T")[0];
   const tipo = document.getElementById("selectTipoPlato").value;
   const nombre = document.getElementById("nombrePlato").value.trim();
   const cliente = document.getElementById("selectClientePlatoCocina").value;
@@ -878,11 +1008,10 @@ async function guardarPlatoDia(e) {
   }
 
   const fechaObj = new Date();
-  const fechaHoy = fechaObj.toISOString().split("T")[0];
   const horaStr = fechaObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const { error } = await db.from('comidas_servidas').insert([{
-    fecha_full: fechaHoy,
+    fecha_full: fechaSeleccionada,
     hora: horaStr,
     tipo,
     nombre,
@@ -894,8 +1023,9 @@ async function guardarPlatoDia(e) {
 
   if (!error) {
     document.getElementById("formPlatoDia").reset();
+    document.getElementById("fechaPlatoCocina").value = fechaSeleccionada;
     document.getElementById("previewFoto").classList.add("hidden");
-    alert("¡Plato registrado correctamente!");
+    alert(`¡Plato registrado correctamente para la fecha ${fechaSeleccionada}!`);
     await cargarComidasBD();
     renderAll();
   } else {
@@ -918,6 +1048,7 @@ function abrirModalEditarComida(id) {
   if (!item) return;
 
   document.getElementById("editComidaId").value = item.id;
+  document.getElementById("editComidaFecha").value = item.fecha_full;
   document.getElementById("editComidaTipo").value = item.tipo;
   document.getElementById("editComidaNombre").value = item.nombre;
   document.getElementById("editComidaCliente").value = item.cliente;
@@ -933,22 +1064,23 @@ function cerrarModalComida() {
 async function guardarEdicionComidaSup(e) {
   e.preventDefault();
   const id = parseInt(document.getElementById("editComidaId").value);
+  const fecha_full = document.getElementById("editComidaFecha").value;
   const tipo = document.getElementById("editComidaTipo").value;
   const nombre = document.getElementById("editComidaNombre").value.trim();
   const cliente = document.getElementById("editComidaCliente").value;
   const cantidad = parseInt(document.getElementById("editComidaCant").value);
 
   const { error } = await db.from('comidas_servidas').update({
-    tipo, nombre, cliente, cantidad
+    fecha_full, tipo, nombre, cliente, cantidad
   }).eq('id', id);
 
   if (!error) {
-    alert("Registro de plato actualizado correctamente.");
+    alert("Registro de plato y fecha actualizados correctamente.");
     cerrarModalComida();
     await cargarComidasBD();
     renderAll();
   } else {
-    alert("Error al actualizar plato.");
+    alert("Error al actualizar plato: " + error.message);
   }
 }
 
@@ -1059,12 +1191,13 @@ async function guardarEdicionGastoSup(e) {
 function renderPlatosHoy() {
   const tbody = document.getElementById("tablaPlatosHoy");
   if (!tbody) return;
-  const hoyStr = new Date().toISOString().split("T")[0];
+  const fechaVista = document.getElementById("fechaPlatoCocina") ? document.getElementById("fechaPlatoCocina").value : new Date().toISOString().split("T")[0];
   tbody.innerHTML = "";
   
-  state.registroComidas.filter(c => c.fecha_full === hoyStr).forEach(item => {
+  state.registroComidas.filter(c => c.fecha_full === fechaVista).forEach(item => {
     tbody.innerHTML += `
       <tr>
+        <td><small>${item.fecha_full}</small></td>
         <td><img src="${item.foto_url}" class="img-thumb" onclick="verFotoModal('${item.foto_url}')"/></td>
         <td>${item.tipo}</td>
         <td>${item.cliente}</td>
@@ -1258,6 +1391,9 @@ function exportarComidasExcel() {
   XLSX.writeFile(wb, "Reporte_Detallado_Comidas_Servidas.xlsx");
 }
 
+// =========================================================================
+// REPORTES PDF
+// =========================================================================
 async function generarPDFSoloCliente() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('p', 'mm', 'a4');
@@ -1505,6 +1641,9 @@ async function generarPDFConsolidadoInterno() {
   doc.save(`Reporte_Consolidado_Interno_${fechaSel}.pdf`);
 }
 
+// =========================================================================
+// NÓMINA QUINCENAL CON HISTORIAL, TASA GUARDADA Y REINICIO A 0
+// =========================================================================
 async function cargarEmpleadosBD() {
   const { data, error } = await db.from('empleados').select('*');
   if (!error && data) {
@@ -1526,14 +1665,21 @@ async function cargarAsistenciasBD() {
 }
 
 async function cargarPagosNominaBD() {
-  const { data, error } = await db.from('pagos_nomina').select('*');
+  const { data, error } = await db.from('pagos_nomina').select('*').order('id', { ascending: false });
   if (!error && data) {
     state.pagosNomina = {};
     data.forEach(p => {
       state.pagosNomina[p.clave_pago] = {
+        id: p.id,
+        clave_pago: p.clave_pago,
+        cedula: p.cedula,
+        mes: p.mes,
+        quincena: p.quincena,
         pagado: p.pagado,
-        montoUSD: parseFloat(p.monto_usd),
-        montoBS: parseFloat(p.monto_bs)
+        montoUSD: parseFloat(p.monto_usd || 0),
+        montoBS: parseFloat(p.monto_bs || 0),
+        tasaCambio: parseFloat(p.tasa_cambio || 0),
+        diasPagados: parseInt(p.dias_pagados || 0)
       };
     });
   }
@@ -1674,6 +1820,7 @@ function renderNominaSup() {
   state.nomina.forEach(emp => {
     const pagoDia = emp.sueldoMensual / 20;
 
+    // Filtrar asistencias correspondientes estrictamente a la quincena seleccionada (Q1: 1-15, Q2: 16-31)
     const asistenciasEmp = state.asistencias.filter(a => {
       if (!a.fecha || a.cedula !== emp.cedula || !a.presente) return false;
       if (!a.fecha.startsWith(mesSel)) return false;
@@ -1683,33 +1830,46 @@ function renderNominaSup() {
       return true;
     });
 
-    const diasTrabajados = asistenciasEmp.length;
-    const totalUSD = diasTrabajados * pagoDia;
-    const totalBS = totalUSD * state.tasaCambio;
-    const montoBsFormatted = totalBS.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-
+    const diasReales = asistenciasEmp.length;
     const clavePago = `${mesSel}_${quincenaSel}_${emp.cedula}`;
-    const estaPagado = state.pagosNomina[clavePago] && state.pagosNomina[clavePago].pagado;
-    const textoCopiar = `PAGO MOVIL:\nCedula: ${emp.cedula}\nBanco: ${emp.banco || 'N/A'}\nTelefono: ${emp.telefono || 'N/A'}\nMonto: ${montoBsFormatted} Bs. (${diasTrabajados} dias)`;
+    const registroPago = state.pagosNomina[clavePago];
+    const estaPagado = registroPago && registroPago.pagado;
+
+    // Si ya fue pagado, la cuenta pendiente del corte se reinicia a 0 días y $0.00
+    const diasPendientes = estaPagado ? 0 : diasReales;
+    const totalUSD = diasPendientes * pagoDia;
+    const totalBS = totalUSD * state.tasaCambio;
+    const montoBsFormatted = totalBS.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const textoCopiar = `PAGO MOVIL:\nCedula: ${emp.cedula}\nBanco: ${emp.banco || 'N/A'}\nTelefono: ${emp.telefono || 'N/A'}\nMonto: ${montoBsFormatted} Bs. (${diasPendientes} dias - ${quincenaSel})`;
 
     tbody.innerHTML += `
       <tr>
         <td><strong>${emp.cedula}</strong></td>
         <td>${emp.nombre}</td>
-        <td><strong>${diasTrabajados} días</strong></td>
+        <td>
+          <strong>${diasPendientes} días</strong>
+          ${estaPagado ? `<br/><small style="color:green;">(Pagados: ${registroPago.diasPagados || diasReales}d)</small>` : ''}
+        </td>
         <td><strong>$${totalUSD.toFixed(2)}</strong></td>
         <td><strong style="color: var(--color-primary); font-size:1.05em;">${montoBsFormatted} Bs.</strong></td>
         <td><small>${emp.banco || 'N/A'}<br/>${emp.telefono || 'N/A'}</small></td>
         <td>
           <span class="${estaPagado ? 'badge-paid' : 'badge-pending'}">
-            ${estaPagado ? 'PAGADO' : 'PENDIENTE'}
+            ${estaPagado ? 'QUINCENA PAGADA (0)' : 'PENDIENTE'}
           </span>
         </td>
         <td>
           <div style="display:flex; gap:5px;">
-            <button class="btn btn-sm ${estaPagado ? 'btn-secondary' : 'btn-success'}" onclick="togglePagoNominaTrabajador('${clavePago}', '${emp.cedula}', '${mesSel}', '${quincenaSel}', ${totalUSD}, ${totalBS})">
-              ${estaPagado ? 'Pendiente' : 'PAGADO'}
-            </button>
+            ${!estaPagado ? `
+              <button class="btn btn-sm btn-success" onclick="registrarPagoQuincenal('${clavePago}', '${emp.cedula}', '${mesSel}', '${quincenaSel}', ${diasReales}, ${totalUSD}, ${totalBS})">
+                PAGADO
+              </button>
+            ` : `
+              <button class="btn btn-sm btn-secondary" onclick="revertirPagoQuincenal('${clavePago}')" title="Anular pago y restaurar días">
+                Revertir
+              </button>
+            `}
             <button class="btn btn-sm btn-secondary" onclick="copiarPagoMovil('${encodeURIComponent(textoCopiar)}')">
               <i class="fas fa-copy"></i>
             </button>
@@ -1718,20 +1878,89 @@ function renderNominaSup() {
       </tr>
     `;
   });
+
+  renderHistorialPagosNomina();
 }
 
-async function togglePagoNominaTrabajador(clavePago, cedula, mes, quincena, montoUSD, montoBS) {
-  const actual = state.pagosNomina[clavePago];
-  const nuevoEstado = actual ? !actual.pagado : true;
+async function registrarPagoQuincenal(clavePago, cedula, mes, quincena, diasPagados, montoUSD, montoBS) {
+  if (diasPagados <= 0) {
+    alert("Este trabajador tiene 0 días trabajados en este periodo.");
+    return;
+  }
+
+  const tasaAplicada = state.tasaCambio;
+  const etiquetaQuincena = quincena === 'Q1' ? '1ra Quincena (01 al 15)' : '2da Quincena (16 al 31)';
+
+  if (!confirm(`¿Confirmar pago de ${etiquetaQuincena} (${mes})?\n\nDías: ${diasPagados}\nMonto: $${montoUSD.toFixed(2)} / ${montoBS.toFixed(2)} Bs.\nTasa: ${tasaAplicada} Bs/$\n\nLa cuenta de este periodo quedará guardada y se reiniciará a 0.`)) {
+    return;
+  }
 
   const { error } = await db.from('pagos_nomina').upsert([{
-    clave_pago: clavePago, cedula, mes, quincena, monto_usd: montoUSD, monto_bs: montoBS, pagado: nuevoEstado
+    clave_pago: clavePago,
+    cedula,
+    mes,
+    quincena,
+    dias_pagados: diasPagados,
+    monto_usd: montoUSD,
+    monto_bs: montoBS,
+    tasa_cambio: tasaAplicada,
+    pagado: true,
+    fecha_pago: new Date().toISOString().split("T")[0]
   }], { onConflict: 'clave_pago' });
 
   if (!error) {
     await cargarPagosNominaBD();
     renderAll();
+  } else {
+    alert("Error al registrar pago: " + error.message);
   }
+}
+
+async function revertirPagoQuincenal(clavePago) {
+  if (!confirm("¿Desea anular este registro de pago para volver a calcular los días pendientes?")) return;
+
+  const { error } = await db.from('pagos_nomina').delete().eq('clave_pago', clavePago);
+  if (!error) {
+    await cargarPagosNominaBD();
+    renderAll();
+  }
+}
+
+function renderHistorialPagosNomina() {
+  const tbody = document.getElementById("tablaHistorialPagosNomina");
+  if (!tbody) return;
+
+  tbody.innerHTML = "";
+  const pagosLista = Object.values(state.pagosNomina).filter(p => p.pagado);
+
+  if (pagosLista.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="description">Aún no se han registrado pagos quincenales guardados.</td></tr>`;
+    return;
+  }
+
+  pagosLista.forEach(p => {
+    const emp = state.nomina.find(e => e.cedula === p.cedula);
+    const nombreEmp = emp ? emp.nombre : p.cedula;
+    const labelQuin = p.quincena === 'Q1' ? '1ra Quincena (1-15)' : (p.quincena === 'Q2' ? '2da Quincena (16-31)' : p.quincena);
+    const bsFormateado = p.montoBS.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    tbody.innerHTML += `
+      <tr>
+        <td><strong>${p.mes}</strong> - <span class="badge">${labelQuin}</span></td>
+        <td>${p.cedula}</td>
+        <td><strong>${nombreEmp}</strong></td>
+        <td>${p.diasPagados} días</td>
+        <td><strong>$${p.montoUSD.toFixed(2)}</strong></td>
+        <td><strong>${p.tasaCambio > 0 ? p.tasaCambio.toFixed(2) + ' Bs/$' : 'N/A'}</strong></td>
+        <td><strong style="color: green;">${bsFormateado} Bs.</strong></td>
+        <td>
+          <button class="btn btn-sm btn-danger" onclick="revertirPagoQuincenal('${p.clave_pago}')" title="Eliminar del historial">
+            <i class="fas fa-trash"></i>
+          </button>
+        </td>
+      </tr>
+    `;
+  });
 }
 
 function copiarPagoMovil(strEncoded) {
@@ -1877,27 +2106,40 @@ function exportarNominaExcel() {
   const mesSel = document.getElementById("filtroMesNomina").value;
   const quincenaSel = document.getElementById("filtroQuincenaNomina").value;
   const data = [
-    ["Reporte de Nomina (Base 20 Días) - El Sazón de Helem C.A."],
-    [`Mes: ${mesSel}`, `Periodo: ${quincenaSel}`, `Tasa: ${state.tasaCambio} Bs/$`],
+    ["Reporte de Nomina Quincenal (Base 20 Días) - El Sazón de Helem C.A."],
+    [`Mes: ${mesSel}`, `Periodo: ${quincenaSel}`, `Tasa Actual: ${state.tasaCambio} Bs/$`],
     [],
-    ["Cédula", "Empleado", "Cargo", "Banco", "Teléfono", "Sueldo Base ($)", "Días Trab.", "Total ($)", "Bs", "Estatus"]
+    ["Cédula", "Empleado", "Cargo", "Banco", "Teléfono", "Sueldo Base ($)", "Días", "Total ($)", "Tasa Guardada", "Total (Bs)", "Estatus"]
   ];
 
   state.nomina.forEach(emp => {
     const pagoDia = emp.sueldoMensual / 20;
-    const asistenciasEmp = state.asistencias.filter(a => {
-      if (!a.fecha || a.cedula !== emp.cedula || !a.presente) return false;
-      if (!a.fecha.startsWith(mesSel)) return false;
-      const dia = parseInt(a.fecha.split("-")[2], 10);
-      if (quincenaSel === "Q1") return dia >= 1 && dia <= 15;
-      if (quincenaSel === "Q2") return dia >= 16 && dia <= 31;
-      return true;
-    });
-    const dias = asistenciasEmp.length;
-    const usd = dias * pagoDia;
-    const bs = usd * state.tasaCambio;
-    const est = state.pagosNomina[`${mesSel}_${quincenaSel}_${emp.cedula}`]?.pagado ? "PAGADO" : "PENDIENTE";
-    data.push([emp.cedula, emp.nombre, emp.cargo, emp.banco, emp.telefono, emp.sueldoMensual, dias, usd, bs, est]);
+    const clavePago = `${mesSel}_${quincenaSel}_${emp.cedula}`;
+    const regPago = state.pagosNomina[clavePago];
+
+    if (regPago && regPago.pagado) {
+      data.push([
+        emp.cedula, emp.nombre, emp.cargo, emp.banco, emp.telefono,
+        emp.sueldoMensual, regPago.diasPagados, regPago.montoUSD,
+        regPago.tasaCambio, regPago.montoBS, "PAGADO"
+      ]);
+    } else {
+      const asistenciasEmp = state.asistencias.filter(a => {
+        if (!a.fecha || a.cedula !== emp.cedula || !a.presente) return false;
+        if (!a.fecha.startsWith(mesSel)) return false;
+        const dia = parseInt(a.fecha.split("-")[2], 10);
+        if (quincenaSel === "Q1") return dia >= 1 && dia <= 15;
+        if (quincenaSel === "Q2") return dia >= 16 && dia <= 31;
+        return true;
+      });
+      const dias = asistenciasEmp.length;
+      const usd = dias * pagoDia;
+      const bs = usd * state.tasaCambio;
+      data.push([
+        emp.cedula, emp.nombre, emp.cargo, emp.banco, emp.telefono,
+        emp.sueldoMensual, dias, usd, state.tasaCambio, bs, "PENDIENTE"
+      ]);
+    }
   });
 
   const ws = XLSX.utils.aoa_to_sheet(data);
