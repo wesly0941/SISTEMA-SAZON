@@ -238,7 +238,7 @@ export default function App() {
       .from('comidas_servidas')
       .select('*')
       .order('fecha_full', { ascending: false })
-      .limit(5000);
+      .limit(150);
     if (!error && data) {
       setRegistroComidas(
         data.map((item) => ({
