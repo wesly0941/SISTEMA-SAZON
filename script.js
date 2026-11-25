@@ -66,7 +66,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 async function cargarTodoDesdeSupabase() {
-  await Promise.all([
+  // Promise.allSettled garantiza que ninguna tabla bloquee a las demás si hay algún error puntual
+  await Promise.allSettled([
     cargarUsuariosBD(),
     cargarClientesBD(),
     cargarBienesClientesBD(),
@@ -494,8 +495,12 @@ async function cargarClientesBD() {
 }
 
 async function cargarBienesClientesBD() {
-  const { data, error } = await db.from('bienes_clientes').select('*').order('id', { ascending: false });
-  if (!error && data) state.bienesClientes = data;
+  try {
+    const { data, error } = await db.from('bienes_clientes').select('*').order('id', { ascending: false });
+    if (!error && data) state.bienesClientes = data;
+  } catch (e) {
+    console.warn("Tabla bienes_clientes pendiente de crear:", e);
+  }
 }
 
 function populateClientesDropdown() {
@@ -657,9 +662,10 @@ function renderPortalCliente() {
   boxDiscriminado.innerHTML = "";
 
   const comidasCliente = state.registroComidas.filter(c => {
+    const fechaItem = c.fecha_limpia || (c.fecha_full ? String(c.fecha_full).substring(0, 10) : "");
     const matchCliente = c.cliente === clienteActual;
-    const matchDesde = !desdeFecha || c.fecha_full >= desdeFecha;
-    const matchHasta = !hastaFecha || c.fecha_full <= hastaFecha;
+    const matchDesde = !desdeFecha || fechaItem >= desdeFecha;
+    const matchHasta = !hastaFecha || fechaItem <= hastaFecha;
     return matchCliente && matchDesde && matchHasta;
   });
 
@@ -672,10 +678,12 @@ function renderPortalCliente() {
   } else {
     comidasCliente.forEach(item => {
       const precio = state.preciosPlatos[item.tipo] || 0;
-      const totalNeto = precio * item.cantidad;
+      const cant = Number(item.cantidad) || 0;
+      const totalNeto = precio * cant;
+      const fechaMostrar = item.fecha_limpia || item.fecha_full;
       
-      totalPlatosRaciones += item.cantidad;
-      discriminado[item.tipo] = (discriminado[item.tipo] || 0) + item.cantidad;
+      totalPlatosRaciones += cant;
+      discriminado[item.tipo] = (discriminado[item.tipo] || 0) + cant;
 
       if (!item.pagado) {
         deudaTotal += totalNeto;
@@ -683,11 +691,11 @@ function renderPortalCliente() {
 
       tbody.innerHTML += `
         <tr>
-          <td>${item.fecha_full} ${item.hora || ''}</td>
+          <td>${fechaMostrar} ${item.hora || ''}</td>
           <td><img src="${item.foto_url}" class="img-thumb" onclick="verFotoModal('${item.foto_url}')" alt="Foto Plato"/></td>
           <td><span class="badge">${item.tipo}</span></td>
           <td><strong>${item.nombre}</strong></td>
-          <td><strong>${item.cantidad}</strong></td>
+          <td><strong>${cant}</strong></td>
           <td>$${precio.toFixed(2)}</td>
           <td><strong>$${totalNeto.toFixed(2)}</strong></td>
           <td>
@@ -745,9 +753,10 @@ function exportarExcelPortalCliente() {
   const hastaFecha = document.getElementById("filtroHastaCliente") ? document.getElementById("filtroHastaCliente").value : "";
 
   const comidasCliente = state.registroComidas.filter(c => {
+    const fechaItem = c.fecha_limpia || (c.fecha_full ? String(c.fecha_full).substring(0, 10) : "");
     const matchCliente = c.cliente === clienteActual;
-    const matchDesde = !desdeFecha || c.fecha_full >= desdeFecha;
-    const matchHasta = !hastaFecha || c.fecha_full <= hastaFecha;
+    const matchDesde = !desdeFecha || fechaItem >= desdeFecha;
+    const matchHasta = !hastaFecha || fechaItem <= hastaFecha;
     return matchCliente && matchDesde && matchHasta;
   });
 
@@ -768,16 +777,17 @@ function exportarExcelPortalCliente() {
 
   comidasCliente.forEach(item => {
     const precio = state.preciosPlatos[item.tipo] || 0;
-    const totalNeto = precio * item.cantidad;
-    totalRaciones += item.cantidad;
+    const cant = Number(item.cantidad) || 0;
+    const totalNeto = precio * cant;
+    totalRaciones += cant;
     totalUSD += totalNeto;
 
     data.push([
-      item.fecha_full,
+      item.fecha_limpia || item.fecha_full,
       item.hora || '',
       item.tipo,
       item.nombre,
-      item.cantidad,
+      cant,
       precio,
       totalNeto,
       item.pagado ? "PAGADO" : "PENDIENTE"
@@ -872,8 +882,13 @@ function renderPreciosPlatos() {
 // CONSUMOS E INSUMOS
 // =========================================================================
 async function cargarConsumosBD() {
-  const { data, error } = await db.from('consumos_diarios').select('*');
-  if (!error && data) state.consumosDiarios = data;
+  const { data, error } = await db.from('consumos_diarios').select('*').limit(5000);
+  if (!error && data) {
+    state.consumosDiarios = data.map(c => ({
+      ...c,
+      fecha_limpia: c.fecha ? String(c.fecha).substring(0, 10) : ""
+    }));
+  }
 }
 
 function populateInsumosDropdownCocina() {
@@ -935,7 +950,7 @@ function renderDiarioCocina() {
   if (labelFechaVisual) labelFechaVisual.innerText = `Fecha del Reporte: ${fechaSel}`;
 
   containerPlatos.innerHTML = "";
-  const platosFecha = state.registroComidas.filter(c => c.fecha_full === fechaSel);
+  const platosFecha = state.registroComidas.filter(c => (c.fecha_limpia || String(c.fecha_full).substring(0, 10)) === fechaSel);
 
   if (platosFecha.length === 0) {
     containerPlatos.innerHTML = "<p class='description'>No hay registros de platos para esta fecha.</p>";
@@ -972,8 +987,19 @@ function descargarReporteImagenCocina() {
 // PLATOS SERVIDOS (CARGA CON FECHA COCINA Y EDICIÓN CON FECHA SUPERVISOR)
 // =========================================================================
 async function cargarComidasBD() {
-  const { data, error } = await db.from('comidas_servidas').select('*');
-  if (!error && data) state.registroComidas = data;
+  const { data, error } = await db
+    .from('comidas_servidas')
+    .select('*')
+    .order('fecha_full', { ascending: false })
+    .limit(5000);
+  if (!error && data) {
+    state.registroComidas = data.map(item => ({
+      ...item,
+      fecha_limpia: item.fecha_full ? String(item.fecha_full).substring(0, 10) : ""
+    }));
+  } else if (error) {
+    console.error("Error cargando comidas_servidas:", error);
+  }
 }
 
 function populateTiposPlatosDropdown() {
@@ -1048,7 +1074,7 @@ function abrirModalEditarComida(id) {
   if (!item) return;
 
   document.getElementById("editComidaId").value = item.id;
-  document.getElementById("editComidaFecha").value = item.fecha_full;
+  document.getElementById("editComidaFecha").value = item.fecha_limpia || String(item.fecha_full).substring(0, 10);
   document.getElementById("editComidaTipo").value = item.tipo;
   document.getElementById("editComidaNombre").value = item.nombre;
   document.getElementById("editComidaCliente").value = item.cliente;
@@ -1194,10 +1220,10 @@ function renderPlatosHoy() {
   const fechaVista = document.getElementById("fechaPlatoCocina") ? document.getElementById("fechaPlatoCocina").value : new Date().toISOString().split("T")[0];
   tbody.innerHTML = "";
   
-  state.registroComidas.filter(c => c.fecha_full === fechaVista).forEach(item => {
+  state.registroComidas.filter(c => (c.fecha_limpia || String(c.fecha_full).substring(0, 10)) === fechaVista).forEach(item => {
     tbody.innerHTML += `
       <tr>
-        <td><small>${item.fecha_full}</small></td>
+        <td><small>${item.fecha_limpia || item.fecha_full}</small></td>
         <td><img src="${item.foto_url}" class="img-thumb" onclick="verFotoModal('${item.foto_url}')"/></td>
         <td>${item.tipo}</td>
         <td>${item.cliente}</td>
@@ -1245,9 +1271,10 @@ function renderReportesCocina() {
   tbodyDetalle.innerHTML = "";
 
   const filtrados = state.registroComidas.filter(item => {
+    const fechaItem = item.fecha_limpia || (item.fecha_full ? String(item.fecha_full).substring(0, 10) : "");
     const matchCliente = !filtroCliente || item.cliente === filtroCliente;
-    const matchDesde = !desdeFecha || item.fecha_full >= desdeFecha;
-    const matchHasta = !hastaFecha || item.fecha_full <= hastaFecha;
+    const matchDesde = !desdeFecha || fechaItem >= desdeFecha;
+    const matchHasta = !hastaFecha || fechaItem <= hastaFecha;
     return matchCliente && matchDesde && matchHasta;
   });
 
@@ -1261,7 +1288,7 @@ function renderReportesCocina() {
         totalCantidad: 0
       };
     }
-    acumuladoMap[clave].totalCantidad += item.cantidad;
+    acumuladoMap[clave].totalCantidad += Number(item.cantidad) || 0;
   });
 
   const keys = Object.keys(acumuladoMap);
@@ -1290,11 +1317,12 @@ function renderReportesCocina() {
   } else {
     filtrados.forEach(item => {
       const precio = state.preciosPlatos[item.tipo] || 0;
-      const totalNeto = (precio * item.cantidad).toFixed(2);
+      const totalNeto = (precio * (Number(item.cantidad) || 0)).toFixed(2);
+      const fechaMostrar = item.fecha_limpia || item.fecha_full;
 
       tbodyDetalle.innerHTML += `
         <tr>
-          <td>${item.fecha_full} ${item.hora || ''}</td>
+          <td>${fechaMostrar} ${item.hora || ''}</td>
           <td><img src="${item.foto_url}" class="img-thumb" onclick="verFotoModal('${item.foto_url}')"/></td>
           <td><strong>${item.cliente}</strong></td>
           <td>${item.tipo}</td>
@@ -1330,7 +1358,7 @@ function renderGastosInsumosSup() {
   const fechaSel = fechaInput.value;
   tbody.innerHTML = "";
 
-  const consumosFecha = state.consumosDiarios.filter(c => c.fecha === fechaSel);
+  const consumosFecha = state.consumosDiarios.filter(c => (c.fecha_limpia || String(c.fecha).substring(0, 10)) === fechaSel);
 
   if (consumosFecha.length === 0) {
     tbody.innerHTML = `<tr><td colspan="5" class="description">No hay consumo de insumos registrado en la fecha seleccionada.</td></tr>`;
@@ -1362,23 +1390,25 @@ function exportarComidasExcel() {
   ];
 
   const filtrados = state.registroComidas.filter(item => {
+    const fechaItem = item.fecha_limpia || (item.fecha_full ? String(item.fecha_full).substring(0, 10) : "");
     const matchCliente = !filtroCliente || item.cliente === filtroCliente;
-    const matchDesde = !desdeFecha || item.fecha_full >= desdeFecha;
-    const matchHasta = !hastaFecha || item.fecha_full <= hastaFecha;
+    const matchDesde = !desdeFecha || fechaItem >= desdeFecha;
+    const matchHasta = !hastaFecha || fechaItem <= hastaFecha;
     return matchCliente && matchDesde && matchHasta;
   });
 
   filtrados.forEach(item => {
     const precio = state.preciosPlatos[item.tipo] || 0;
-    const totalNeto = precio * item.cantidad;
+    const cant = Number(item.cantidad) || 0;
+    const totalNeto = precio * cant;
     const estatus = item.pagado ? "PAGADO" : "PENDIENTE";
     data.push([
-      item.fecha_full,
+      item.fecha_limpia || item.fecha_full,
       item.hora || '',
       item.cliente,
       item.tipo,
       item.nombre,
-      item.cantidad,
+      cant,
       precio,
       totalNeto,
       estatus
@@ -1403,7 +1433,8 @@ async function generarPDFSoloCliente() {
   const tipoSel = document.getElementById("pdfSelectTipoComida").value;
 
   const comidasFiltradas = state.registroComidas.filter(c => {
-    const matchFecha = c.fecha_full === fechaSel;
+    const fechaItem = c.fecha_limpia || (c.fecha_full ? String(c.fecha_full).substring(0, 10) : "");
+    const matchFecha = fechaItem === fechaSel;
     const matchCliente = !clienteSel || c.cliente === clienteSel;
     const matchTipo = !tipoSel || c.tipo === tipoSel;
     return matchFecha && matchCliente && matchTipo;
@@ -1509,8 +1540,8 @@ async function generarPDFConsolidadoInterno() {
   
   const fechaSel = document.getElementById("pdfFechaInsumosInterno") ? document.getElementById("pdfFechaInsumosInterno").value : new Date().toISOString().split("T")[0];
 
-  const comidasFiltradas = state.registroComidas.filter(c => c.fecha_full === fechaSel);
-  const consumosFiltrados = state.consumosDiarios.filter(c => c.fecha === fechaSel);
+  const comidasFiltradas = state.registroComidas.filter(c => (c.fecha_limpia || String(c.fecha_full).substring(0, 10)) === fechaSel);
+  const consumosFiltrados = state.consumosDiarios.filter(c => (c.fecha_limpia || String(c.fecha).substring(0, 10)) === fechaSel);
 
   doc.setFillColor(11, 37, 69); 
   doc.rect(0, 0, 210, 32, 'F');
@@ -1660,7 +1691,7 @@ async function cargarEmpleadosBD() {
 }
 
 async function cargarAsistenciasBD() {
-  const { data, error } = await db.from('asistencias').select('*');
+  const { data, error } = await db.from('asistencias').select('*').limit(5000);
   if (!error && data) state.asistencias = data;
 }
 
@@ -2007,12 +2038,12 @@ function renderDashboardSup() {
   if (!statComidas) return;
 
   const hoyStr = new Date().toISOString().split("T")[0];
-  const comidasHoy = state.registroComidas.filter(c => c.fecha_full === hoyStr);
-  const totalServidos = comidasHoy.reduce((acc, curr) => acc + curr.cantidad, 0);
+  const comidasHoy = state.registroComidas.filter(c => (c.fecha_limpia || String(c.fecha_full).substring(0, 10)) === hoyStr);
+  const totalServidos = comidasHoy.reduce((acc, curr) => acc + (Number(curr.cantidad) || 0), 0);
 
   let totalVentas = 0;
   comidasHoy.forEach(item => {
-    totalVentas += item.cantidad * (state.preciosPlatos[item.tipo] || 0);
+    totalVentas += (Number(item.cantidad) || 0) * (state.preciosPlatos[item.tipo] || 0);
   });
 
   statComidas.innerText = totalServidos;
