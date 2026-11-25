@@ -1,0 +1,6 @@
+{
+  "name": "El Sazón de Helem C.A. - Sistema de Gestión",
+  "description": "Sistema integral de gestión gastronómica, inventario, nómina quincenal, facturación y portal corporativo de clientes para El Sazón de Helem C.A.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
